@@ -4,7 +4,7 @@ set -eu
 exec gcc \
   -std=c11 \
   -O0 \
-  -g \
+  -ggdb \
   -Wall \
   -Wextra \
   -pedantic \

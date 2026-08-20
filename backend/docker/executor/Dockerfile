@@ -1,6 +1,9 @@
 FROM gcc:13.4.0-bookworm
 
-RUN groupadd --gid 10001 runner \
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends gdb \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 runner \
     && useradd --uid 10001 --gid runner --no-create-home --shell /usr/sbin/nologin runner \
     && mkdir -p /build /workspace \
     && chown runner:runner /build /workspace

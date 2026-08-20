@@ -1,0 +1,12 @@
+-gdb-set pagination off
+-file-exec-and-symbols /build/program
+-break-insert main
+-exec-run
+-stack-list-frames
+-stack-list-variables --all-values
+-exec-next
+-stack-list-variables --all-values
+-exec-step
+-stack-list-frames
+-stack-list-variables --all-values
+-gdb-exit
