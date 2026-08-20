@@ -18,6 +18,20 @@ When `environment.yml` changes, update the existing environment with
 The API is available at `http://127.0.0.1:8000`, with interactive documentation
 at `http://127.0.0.1:8000/docs`.
 
+## Docker C executor
+
+The real compile-and-run endpoint requires Docker Desktop and the local executor
+image:
+
+```bash
+cd docker/executor
+docker build -t clvlp-c-executor:phase2a .
+```
+
+`POST /api/execute` compiles one `main.c` with GCC 13.4 in C11 mode, then runs
+the binary without network access and with CPU, memory, process, time and output
+limits. `POST /api/run` remains the Phase 1 simulated Execution Trace endpoint.
+
 ## Tests
 
 ```bash
