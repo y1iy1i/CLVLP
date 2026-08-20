@@ -143,6 +143,11 @@ button {
   border-color: #68edbe;
 }
 
+.run-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .run-button:focus-visible,
 .icon-button:focus-visible,
 .file-item:focus-visible {
@@ -378,6 +383,16 @@ button {
   color: #747e8c;
   font-size: 11px;
   line-height: 1.7;
+}
+
+.empty-trace.has-error .empty-trace-mark {
+  border-color: #70413f;
+  color: #ff928a;
+  background: #2a1b1b;
+}
+
+.empty-trace.has-error p {
+  color: #c4847e;
 }
 
 .visual-section {

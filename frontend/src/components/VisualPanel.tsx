@@ -2,20 +2,21 @@ import type { TraceStep } from '../types/trace'
 
 interface VisualPanelProps {
   step?: TraceStep
+  error?: string
 }
 
 const displayValue = (value: unknown) =>
   typeof value === 'string' ? `"${value}"` : JSON.stringify(value)
 
-export function VisualPanel({ step }: VisualPanelProps) {
+export function VisualPanel({ step, error }: VisualPanelProps) {
   if (!step) {
     return (
       <aside className="visual-panel">
         <div className="panel-heading">执行可视化</div>
-        <div className="empty-trace">
-          <div className="empty-trace-mark">▶</div>
-          <h2>准备运行</h2>
-          <p>点击顶部 Run，使用模拟 Trace 查看程序状态变化。</p>
+        <div className={`empty-trace${error ? ' has-error' : ''}`}>
+          <div className="empty-trace-mark">{error ? '!' : '▶'}</div>
+          <h2>{error ? '运行请求失败' : '准备运行'}</h2>
+          <p>{error ?? '点击顶部 Run，由 FastAPI 返回模拟 Trace。'}</p>
         </div>
       </aside>
     )

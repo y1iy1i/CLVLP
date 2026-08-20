@@ -1,0 +1,12 @@
+name: clvlp
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - "fastapi>=0.116,<1.0"
+      - "pydantic>=2.11,<3.0"
+      - "uvicorn[standard]>=0.35,<1.0"
+      - "httpx>=0.28,<1.0"
+      - "pytest>=8.4,<9.0"
