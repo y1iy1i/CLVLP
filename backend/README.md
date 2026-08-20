@@ -1,8 +1,7 @@
 # CLVLP Backend
 
-This FastAPI service exposes a simulated C execution endpoint for the Phase 1
-data-flow prototype. It validates the request and returns a versioned Execution
-Trace without compiling or executing the submitted C source.
+This FastAPI service exposes the Phase 1 simulated Trace endpoint and the
+Phase 2 isolated C execution foundation.
 
 ## Conda environment
 
@@ -25,12 +24,21 @@ image:
 
 ```bash
 cd docker/executor
-docker build -t clvlp-c-executor:phase2a .
+docker build -t clvlp-c-executor:phase2b-gdb .
 ```
 
 `POST /api/execute` compiles one `main.c` with GCC 13.4 in C11 mode, then runs
 the binary without network access and with CPU, memory, process, time and output
-limits. `POST /api/run` remains the Phase 1 simulated Execution Trace endpoint.
+limits.
+
+The same image includes GDB 13.1. The backend GDB/MI controller can set
+breakpoints, step through the program, and request structured line, variable,
+and stack-frame records. Only the GDB container receives `SYS_PTRACE`; the
+normal compile and execute containers retain the stricter capability set.
+
+`POST /api/run` still returns the Phase 1 simulated Execution Trace. The GDB/MI
+records are not converted to the public Trace schema until the next Phase 2B
+milestone.
 
 ## Tests
 

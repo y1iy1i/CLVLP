@@ -17,7 +17,7 @@ from app.models.execution import (
 from app.models.trace import TraceSource
 
 
-DEFAULT_IMAGE = "clvlp-c-executor:phase2a"
+DEFAULT_IMAGE = "clvlp-c-executor:phase2b-gdb"
 COMPILE_TIMEOUT_SECONDS = 10
 RUN_TIMEOUT_SECONDS = 2
 HOST_RUN_TIMEOUT_SECONDS = 6
@@ -30,6 +30,28 @@ MAX_OUTPUT_BYTES = 65_536
 
 class DockerExecutionUnavailable(RuntimeError):
     pass
+
+
+def docker_security_arguments(memory_megabytes: int) -> List[str]:
+    return [
+        "--network",
+        "none",
+        "--cpus",
+        str(CPU_COUNT),
+        "--memory",
+        f"{memory_megabytes}m",
+        "--memory-swap",
+        f"{memory_megabytes}m",
+        "--pids-limit",
+        str(PROCESS_LIMIT),
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,nosuid,nodev,size=32m",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+    ]
 
 
 def _decode(value: bytes) -> str:
@@ -174,7 +196,7 @@ class DockerExecutionEngine:
                 "--rm",
                 "--name",
                 container_name,
-                *self._security_arguments(COMPILE_MEMORY_MEGABYTES),
+                *docker_security_arguments(COMPILE_MEMORY_MEGABYTES),
                 "--mount",
                 f"type=bind,source={source_dir},target=/workspace,readonly",
                 "--mount",
@@ -197,7 +219,7 @@ class DockerExecutionEngine:
                 "--rm",
                 "--name",
                 container_name,
-                *self._security_arguments(MEMORY_MEGABYTES),
+                *docker_security_arguments(MEMORY_MEGABYTES),
                 "--env",
                 f"CLVLP_RUN_TIMEOUT_SECONDS={RUN_TIMEOUT_SECONDS}",
                 "--env",
@@ -210,28 +232,6 @@ class DockerExecutionEngine:
             timeout=HOST_RUN_TIMEOUT_SECONDS,
             check=False,
         )
-
-    @staticmethod
-    def _security_arguments(memory_megabytes: int) -> List[str]:
-        return [
-            "--network",
-            "none",
-            "--cpus",
-            str(CPU_COUNT),
-            "--memory",
-            f"{memory_megabytes}m",
-            "--memory-swap",
-            f"{memory_megabytes}m",
-            "--pids-limit",
-            str(PROCESS_LIMIT),
-            "--read-only",
-            "--tmpfs",
-            "/tmp:rw,nosuid,nodev,size=32m",
-            "--cap-drop",
-            "ALL",
-            "--security-opt",
-            "no-new-privileges",
-        ]
 
     def _result(
         self,
