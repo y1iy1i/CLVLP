@@ -12,7 +12,9 @@ const variable = (
   scope: 'main',
 })
 
-const frame = (variables: string[]) => [{ function: 'main', variables }]
+const frame = (variables: string[]) => [
+  { id: 'frame:main:1', function: 'main', variables },
+]
 
 export const starterCode = `#include <stdio.h>
 

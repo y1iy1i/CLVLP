@@ -39,7 +39,13 @@ def _state(i: int = None, total: int = None) -> ExecutionState:
 
     return ExecutionState(
         variables=variables,
-        callStack=[StackFrame(function="main", variables=variable_ids)],
+        callStack=[
+            StackFrame(
+                id="frame:main:1",
+                function="main",
+                variables=variable_ids,
+            )
+        ],
         memory=[],
     )
 

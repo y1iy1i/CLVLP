@@ -49,6 +49,7 @@ class TraceVariable(BaseModel):
 
 
 class StackFrame(BaseModel):
+    id: str
     function: str
     variables: List[str] = Field(default_factory=list)
 

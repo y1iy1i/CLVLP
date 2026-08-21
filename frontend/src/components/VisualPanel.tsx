@@ -63,7 +63,7 @@ export function VisualPanel({ step, error }: VisualPanelProps) {
       <section className="visual-section">
         <div className="section-label">调用栈</div>
         {step.state.callStack.map((frame, index) => (
-          <div className="stack-frame" key={`${frame.function}-${index}`}>
+          <div className="stack-frame" key={frame.id}>
             <span className="stack-index">#{index}</span>
             <span>{frame.function}()</span>
             <span className="stack-count">{frame.variables.length} 个变量</span>

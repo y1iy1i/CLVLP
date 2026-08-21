@@ -20,6 +20,8 @@ Monaco Editor 获取代码，React 调用 FastAPI，后端返回模拟 Execution
 - FastAPI 自动接口文档与基础测试
 - Docker 隔离的 C11 编译与运行
 - 编译错误、运行错误、超时和输出捕获
+- GDB/MI 行号、变量类型和值、调用栈快照采集
+- GDB 快照到 Execution Trace 的差异转换器
 
 ## 项目结构
 
@@ -72,7 +74,7 @@ npm install
 
 ```bash
 cd backend/docker/executor
-docker build -t clvlp-c-executor:phase2a .
+docker build -t clvlp-c-executor:phase2b-gdb .
 ```
 
 ## 本地启动
@@ -181,7 +183,7 @@ npm run build
 
 - Phase 1：编辑器、模拟 Trace、前后端通信和基础可视化
 - Phase 2A：Docker 隔离的真实 C 编译与运行（已完成）
-- Phase 2B：GDB 行级变量 Trace
+- Phase 2B：GDB 行级变量 Trace（快照转换器已完成，API 接入待完成）
 - Phase 3：Clang AST 或 Tree-sitter 代码结构分析
 - Phase 4：事件驱动的算法可视化
 - Phase 5：LLM 教学解释、错误分析和内容生成

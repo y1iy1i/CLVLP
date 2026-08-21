@@ -30,6 +30,7 @@ export interface TraceVariable {
 }
 
 export interface StackFrame {
+  id: string
   function: string
   variables: string[]
 }
