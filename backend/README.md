@@ -8,7 +8,7 @@ Phase 2 isolated C execution foundation.
 ```bash
 conda env create -f environment.yml
 conda activate clvlp
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+CLVLP_TRACE_ENGINE=gdb python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 When `environment.yml` changes, update the existing environment with
@@ -44,8 +44,14 @@ Common scalar values become JSON numbers, booleans or characters; pointers,
 arrays and other complex values remain lossless GDB strings for later memory
 model work.
 
-`POST /api/run` still returns the Phase 1 simulated Execution Trace. Connecting
-the validated converter to the public endpoint is the next Phase 2B milestone.
+`POST /api/run` selects its engine with `CLVLP_TRACE_ENGINE=mock|gdb`. The
+default remains `mock` for development without Docker; use `gdb` to compile the
+submitted source and return a real line-level Trace.
+
+The traced program writes stdout and stderr to separate files inside its
+read-only, network-disabled container. The backend reads incremental output at
+each stop and again at program exit, so single-line programs, output without a
+trailing newline, and stderr remain accurate in the final Trace.
 
 ## Tests
 

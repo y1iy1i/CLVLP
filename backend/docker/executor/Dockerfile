@@ -10,6 +10,14 @@ RUN apt-get update \
 
 COPY --chmod=0555 compile-c.sh /usr/local/bin/clvlp-compile
 COPY --chmod=0555 run-c.sh /usr/local/bin/clvlp-run
+COPY --chmod=0555 read-trace-output.sh /usr/local/bin/clvlp-read-trace-output
+COPY trace-wrapper.c /tmp/clvlp-trace-wrapper.c
+
+RUN gcc -std=c11 -O2 -Wall -Wextra -pedantic \
+      /tmp/clvlp-trace-wrapper.c \
+      -o /usr/local/bin/clvlp-trace-run \
+    && chmod 0555 /usr/local/bin/clvlp-trace-run \
+    && rm /tmp/clvlp-trace-wrapper.c
 
 USER runner:runner
 WORKDIR /workspace

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CodeEditor } from './components/CodeEditor'
 import { ExecutionPanel } from './components/ExecutionPanel'
 import { FileExplorer } from './components/FileExplorer'
@@ -19,6 +19,7 @@ function App() {
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
   const [currentStepIndex, setCurrentStepIndex] = useState<number | null>(null)
   const [isRunning, setIsRunning] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [runError, setRunError] = useState<string | null>(null)
 
   const currentStep =
@@ -29,6 +30,22 @@ function App() {
     currentStepIndex !== null &&
     currentStepIndex === (executionTrace?.trace.length ?? 0) - 1
 
+  useEffect(() => {
+    if (!isPlaying) return
+    const timer = window.setInterval(() => {
+      setCurrentStepIndex((index) => {
+        if (index === null) return 0
+        const last = (executionTrace?.trace.length ?? 1) - 1
+        return index >= last ? index : index + 1
+      })
+    }, 700)
+    return () => window.clearInterval(timer)
+  }, [isPlaying, executionTrace])
+
+  useEffect(() => {
+    if (isPlaying && isLastStep) setIsPlaying(false)
+  }, [isPlaying, isLastStep])
+
   const changeMode = (mode: RunMode) => {
     if (isRunning || mode === runMode) return
     setRunMode(mode)
@@ -36,6 +53,7 @@ function App() {
     setExecutionResult(null)
     setCurrentStepIndex(null)
     setRunError(null)
+    setIsPlaying(false)
   }
 
   const runCurrentMode = async () => {
@@ -44,6 +62,7 @@ function App() {
     setExecutionTrace(null)
     setExecutionResult(null)
     setCurrentStepIndex(null)
+    setIsPlaying(false)
 
     try {
       if (runMode === 'trace') {
@@ -71,15 +90,15 @@ function App() {
 
   const statusText = isRunning
     ? runMode === 'trace'
-      ? 'Requesting Trace…'
-      : 'Compiling in Docker…'
+      ? '正在生成运行轨迹…'
+      : '正在 Docker 中编译运行…'
     : runError
-      ? 'Backend unavailable'
-      : runMode === 'trace' && hasStarted
-        ? `Trace ${executionTrace?.status}`
+      ? '后端不可用'
+      : runMode === 'trace' && executionTrace
+        ? `Trace ${executionTrace.status}`
         : runMode === 'execute' && executionResult
           ? `Execution ${executionResult.status}`
-          : 'Ready'
+          : '就绪'
 
   return (
     <main className="app-shell">
@@ -106,7 +125,7 @@ function App() {
               onClick={() => changeMode('trace')}
               disabled={isRunning}
             >
-              Trace 演示
+              Trace 追踪
             </button>
             <button
               type="button"
@@ -122,6 +141,16 @@ function App() {
         <div className="run-controls">
           {runMode === 'trace' ? (
             <>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={() => setIsPlaying((playing) => !playing)}
+                disabled={!executionTrace || executionTrace.trace.length === 0}
+                aria-label={isPlaying ? '暂停播放' : '自动播放'}
+                title={isPlaying ? '暂停播放' : '自动播放'}
+              >
+                {isPlaying ? '❚❚' : '▶'}
+              </button>
               <button
                 className="icon-button"
                 type="button"
@@ -182,7 +211,11 @@ function App() {
           </div>
         </section>
         {runMode === 'trace' ? (
-          <VisualPanel step={currentStep} error={runError ?? undefined} />
+          <VisualPanel
+            trace={executionTrace ?? undefined}
+            step={currentStep}
+            error={runError ?? undefined}
+          />
         ) : (
           <ExecutionPanel
             result={executionResult ?? undefined}

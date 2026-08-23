@@ -132,15 +132,30 @@ def convert_gdb_value(raw_value: str, type_name: str) -> Any:
 def capture_gdb_snapshot(
     session: GdbCommandSession,
     stop: MiRecord,
-    execution_records: Sequence[MiRecord] = (),
+    *,
+    entry_file: Optional[str] = None,
+    stdout: str = "",
+    stderr: str = "",
 ) -> GdbStopSnapshot:
-    """Read every stack frame and its variables at one stopped GDB state."""
+    """Read every stack frame and its variables at one stopped GDB state.
+
+    When ``entry_file`` is given, frames outside that source file (for
+    example libc startup frames) are skipped so the trace only describes
+    user code.
+    """
 
     if stop.kind != "exec" or stop.message != "stopped":
         raise ValueError("The supplied GDB record is not a stopped event.")
 
     stack_response = session.execute("-stack-list-frames")
     raw_frames = stack_response.result.payload.get("stack", [])
+    if entry_file is not None:
+        user_frames = [
+            item
+            for item in raw_frames
+            if _stack_item_source_file(item) == entry_file
+        ]
+        raw_frames = user_frames or raw_frames
     frames: List[GdbFrameSnapshot] = []
     try:
         for stack_item in raw_frames:
@@ -174,11 +189,8 @@ def capture_gdb_snapshot(
     return GdbStopSnapshot(
         frames=frames,
         reason=str(stop.payload.get("reason", "unknown")),
-        stdout="".join(
-            str(record.payload)
-            for record in execution_records
-            if record.kind == "target"
-        ),
+        stdout=stdout,
+        stderr=stderr,
         signal_name=_optional_string(stop.payload.get("signal-name")),
     )
 
@@ -271,6 +283,7 @@ class ExecutionTraceBuilder:
         self._previous = assigned
         if len(self._steps) >= self.max_steps:
             self._truncated = True
+            self._sync_last_output()
             return None
         self._steps.append(step)
         return step
@@ -294,6 +307,24 @@ class ExecutionTraceBuilder:
             ),
             error=error,
         )
+
+    def append_output(self, stdout: str = "", stderr: str = "") -> None:
+        """Attach output produced after the final source-level snapshot."""
+
+        if not stdout and not stderr:
+            return
+        self._stdout += stdout
+        self._stderr += stderr
+        self._sync_last_output()
+        if not self._steps:
+            return
+        last_event = self._steps[-1].event
+        data = dict(last_event.data)
+        if stdout:
+            data["stdoutDelta"] = str(data.get("stdoutDelta", "")) + stdout
+        if stderr:
+            data["stderrDelta"] = str(data.get("stderrDelta", "")) + stderr
+        self._steps[-1].event = TraceEvent(type=last_event.type, data=data)
 
     def _assign_frames(self, snapshot: GdbStopSnapshot) -> _AssignedSnapshot:
         current_bottom_up = list(reversed(snapshot.frames))
@@ -366,6 +397,13 @@ class ExecutionTraceBuilder:
             ),
             output=StepOutput(stdout=self._stdout, stderr=self._stderr),
         )
+
+    def _sync_last_output(self) -> None:
+        if self._steps:
+            self._steps[-1].output = StepOutput(
+                stdout=self._stdout,
+                stderr=self._stderr,
+            )
 
     def _variable_changes(
         self,
@@ -477,6 +515,18 @@ class ExecutionTraceBuilder:
             current.function == previous.function
             and current_file == previous_file
         )
+
+
+def _stack_item_source_file(stack_item: Any) -> Optional[str]:
+    if not isinstance(stack_item, dict):
+        return None
+    frame_payload = stack_item.get("frame", stack_item)
+    if not isinstance(frame_payload, dict):
+        return None
+    file_name = frame_payload.get("fullname") or frame_payload.get("file")
+    if not file_name:
+        return None
+    return Path(str(file_name)).name
 
 
 def _optional_string(value: Any) -> Optional[str]:

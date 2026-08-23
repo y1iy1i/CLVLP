@@ -43,21 +43,18 @@ def test_gdb_reads_lines_variables_and_stack() -> None:
         initial_snapshot = capture_gdb_snapshot(
             session,
             first_stop.stopped,
-            first_stop.records,
         )
         next_stop = session.execute("-exec-next", wait_for_stop=True)
         assert next_stop.stopped is not None
         next_snapshot = capture_gdb_snapshot(
             session,
             next_stop.stopped,
-            next_stop.records,
         )
         function_stop = session.execute("-exec-step", wait_for_stop=True)
         assert function_stop.stopped is not None
         function_snapshot = capture_gdb_snapshot(
             session,
             function_stop.stopped,
-            function_stop.records,
         )
 
     assert initial_snapshot.current_frame.line == 9

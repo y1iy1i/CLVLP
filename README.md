@@ -3,8 +3,8 @@
 CLVLP 是一个基于 Web 的 C 语言可视化学习平台。当前 Phase 1 已打通完整数据流：
 Monaco Editor 获取代码，React 调用 FastAPI，后端返回模拟 Execution Trace，前端按步骤展示代码位置、变量、调用栈、事件和程序输出。
 
-`/api/run` 当前返回固定的教学演示 Trace；Phase 2A 新增的 `/api/execute`
-会在受限 Docker 容器中真实编译并运行单文件 C 程序，但暂不生成变量 Trace。
+`/api/run` 现在可以通过配置选择模拟 Trace 或真实 GDB Trace；`/api/execute`
+会在受限 Docker 容器中真实编译并运行单文件 C 程序。
 
 ## 当前功能
 
@@ -22,6 +22,8 @@ Monaco Editor 获取代码，React 调用 FastAPI，后端返回模拟 Execution
 - 编译错误、运行错误、超时和输出捕获
 - GDB/MI 行号、变量类型和值、调用栈快照采集
 - GDB 快照到 Execution Trace 的差异转换器
+- 自动 GDB 单步循环、系统函数跳过和最多500步截断
+- Trace 中独立捕获 stdout 与 stderr，包括无换行和退出时输出
 
 ## 项目结构
 
@@ -86,7 +88,7 @@ docker build -t clvlp-c-executor:phase2b-gdb .
 ```bash
 conda activate clvlp
 cd backend
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+CLVLP_TRACE_ENGINE=gdb python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 终端二运行前端：
@@ -104,7 +106,7 @@ npm run dev -- --host 127.0.0.1
 
 前端顶部可以选择两种模式：
 
-- `Trace 演示`：调用 `/api/run`，播放 Phase 1 模拟 Trace。
+- `Trace 追踪`：调用 `/api/run`，播放模拟 Trace 或真实 GDB Trace。
 - `真实运行`：调用 `/api/execute`，在 Docker 中编译当前编辑器代码并展示真实结果。
 
 ## API
@@ -183,7 +185,7 @@ npm run build
 
 - Phase 1：编辑器、模拟 Trace、前后端通信和基础可视化
 - Phase 2A：Docker 隔离的真实 C 编译与运行（已完成）
-- Phase 2B：GDB 行级变量 Trace（快照转换器已完成，API 接入待完成）
+- Phase 2B：GDB 行级变量 Trace（真实引擎与 API 接入已完成）
 - Phase 3：Clang AST 或 Tree-sitter 代码结构分析
 - Phase 4：事件驱动的算法可视化
 - Phase 5：LLM 教学解释、错误分析和内容生成

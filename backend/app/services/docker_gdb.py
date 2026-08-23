@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import base64
 import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from app.services.docker_executor import (
     COMPILE_MEMORY_MEGABYTES,
     COMPILE_TIMEOUT_SECONDS,
     DEFAULT_IMAGE,
+    MAX_OUTPUT_BYTES,
     MEMORY_MEGABYTES,
     docker_security_arguments,
 )
@@ -44,6 +46,8 @@ class DockerGdbSession:
         self.gdb_container = f"clvlp-gdb-session-{token}"
         self._source_directory: Optional[tempfile.TemporaryDirectory[str]] = None
         self._mi_session: Optional[GdbMiSession] = None
+        self._stdout_offset = 0
+        self._stderr_offset = 0
 
     def start(self) -> List[MiRecord]:
         if self._mi_session is not None:
@@ -70,7 +74,11 @@ class DockerGdbSession:
                 self._gdb_command(),
                 startup_timeout=GDB_STARTUP_TIMEOUT_SECONDS,
             )
-            return self._mi_session.start()
+            records = self._mi_session.start()
+            self._mi_session.execute(
+                "-gdb-set exec-wrapper /usr/local/bin/clvlp-trace-run"
+            )
+            return records
         except Exception:
             self.close()
             raise
@@ -88,6 +96,32 @@ class DockerGdbSession:
             command,
             wait_for_stop=wait_for_stop,
             timeout=timeout,
+        )
+
+    def read_output(self) -> Tuple[str, str]:
+        """Return new stdout and stderr bytes produced since the last read."""
+
+        if self._mi_session is None:
+            raise DockerGdbUnavailable("Docker GDB session has not been started.")
+        result = self._docker(
+            [
+                "exec",
+                self.gdb_container,
+                "/usr/local/bin/clvlp-read-trace-output",
+                str(self._stdout_offset),
+                str(self._stderr_offset),
+                str(MAX_OUTPUT_BYTES),
+            ],
+            timeout=GDB_COMMAND_TIMEOUT_SECONDS,
+        )
+        fields = self._parse_output_fields(
+            result.stdout.decode("ascii", errors="strict")
+        )
+        self._stdout_offset = int(fields["stdout-size"])
+        self._stderr_offset = int(fields["stderr-size"])
+        return (
+            self._decode_output(fields["stdout-data"]),
+            self._decode_output(fields["stderr-data"]),
         )
 
     def close(self) -> None:
@@ -196,3 +230,28 @@ class DockerGdbSession:
             self._docker(arguments, timeout=10, check=False)
         except (DockerGdbUnavailable, subprocess.TimeoutExpired):
             pass
+
+    @staticmethod
+    def _parse_output_fields(output: str) -> Dict[str, str]:
+        fields: Dict[str, str] = {}
+        for line in output.splitlines():
+            name, separator, value = line.partition(":")
+            if separator:
+                fields[name] = value
+        expected = {
+            "stdout-size",
+            "stdout-data",
+            "stderr-size",
+            "stderr-data",
+        }
+        if not expected <= fields.keys():
+            raise DockerGdbUnavailable("Invalid trace output reader response.")
+        return fields
+
+    @staticmethod
+    def _decode_output(value: str) -> str:
+        try:
+            raw = base64.b64decode(value, validate=True)
+        except ValueError as exc:
+            raise DockerGdbUnavailable("Invalid trace output encoding.") from exc
+        return raw.decode("utf-8", errors="replace")

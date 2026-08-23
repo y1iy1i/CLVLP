@@ -619,6 +619,56 @@ button {
   white-space: pre-wrap;
 }
 
+.event-detail {
+  margin-top: 9px;
+  color: #93a3b3;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.event-changes {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.event-changes li {
+  padding: 5px 8px;
+  border: 1px solid #26313a;
+  border-radius: 5px;
+  color: #9fb3c0;
+  background: #12161b;
+  font: 10px/1.5 var(--mono);
+}
+
+.truncated-hint {
+  margin: 12px 12px 0;
+  padding: 8px 10px;
+  border: 1px solid #5a4a2c;
+  border-radius: 7px;
+  color: #f0bd5f;
+  background: #241f14;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.empty-error-pre {
+  max-width: 260px;
+  max-height: 140px;
+  margin-top: 12px;
+  padding: 9px;
+  border: 1px solid #5f3938;
+  border-radius: 6px;
+  overflow: auto;
+  color: #d18b86;
+  background: #1b1314;
+  font: 9px/1.55 var(--mono);
+  white-space: pre-wrap;
+  text-align: left;
+}
+
 .variable-table {
   border: 1px solid #2a3038;
   border-radius: 7px;
