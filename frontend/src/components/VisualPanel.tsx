@@ -1,8 +1,10 @@
 import type { ExecutionTrace, RunStatus, TraceStep } from '../types/trace'
+import { ArrayVisualizer } from '../visualizations/array/ArrayVisualizer'
 
 interface VisualPanelProps {
   trace?: ExecutionTrace
   step?: TraceStep
+  previousStep?: TraceStep
   error?: string
 }
 
@@ -95,7 +97,7 @@ interface ChangeRecord extends Record<string, unknown> {
   variableId?: string
 }
 
-export function VisualPanel({ trace, step, error }: VisualPanelProps) {
+export function VisualPanel({ trace, step, previousStep, error }: VisualPanelProps) {
   const compileStderr =
     trace?.error?.details && typeof trace.error.details.stderr === 'string'
       ? trace.error.details.stderr
@@ -131,6 +133,8 @@ export function VisualPanel({ trace, step, error }: VisualPanelProps) {
   }
 
   const changes = (step.event.data.changes ?? []) as ChangeRecord[]
+  const isWaitingForInitialization =
+    step.event.type === 'function_enter' && step.event.data.initial === true
 
   return (
     <aside className="visual-panel" aria-label="执行可视化">
@@ -156,6 +160,8 @@ export function VisualPanel({ trace, step, error }: VisualPanelProps) {
         </section>
       )}
 
+      <ArrayVisualizer step={step} previousStep={previousStep} />
+
       <section className="visual-section event-card">
         <div className="section-label">当前事件</div>
         <div className="event-title">
@@ -178,7 +184,11 @@ export function VisualPanel({ trace, step, error }: VisualPanelProps) {
 
       <section className="visual-section">
         <div className="section-label">变量状态</div>
-        {step.state.variables.length > 0 ? (
+        {isWaitingForInitialization ? (
+          <div className="section-empty">
+            函数刚刚进入，局部变量尚未初始化
+          </div>
+        ) : step.state.variables.length > 0 ? (
           <div className="variable-table">
             <div className="variable-row variable-header">
               <span>名称</span>

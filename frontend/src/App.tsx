@@ -24,6 +24,10 @@ function App() {
 
   const currentStep =
     currentStepIndex === null ? undefined : executionTrace?.trace[currentStepIndex]
+  const previousTraceStep =
+    currentStepIndex === null || currentStepIndex === 0
+      ? undefined
+      : executionTrace?.trace[currentStepIndex - 1]
   const hasStarted = runMode === 'trace' && currentStepIndex !== null
   const isFirstStep = currentStepIndex === 0
   const isLastStep =
@@ -214,6 +218,7 @@ function App() {
           <VisualPanel
             trace={executionTrace ?? undefined}
             step={currentStep}
+            previousStep={previousTraceStep}
             error={runError ?? undefined}
           />
         ) : (

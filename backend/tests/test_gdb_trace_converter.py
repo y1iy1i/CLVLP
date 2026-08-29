@@ -3,8 +3,10 @@ from app.services.gdb_trace_converter import (
     GdbFrameSnapshot,
     GdbStopSnapshot,
     GdbVariableSnapshot,
+    _capture_variable,
     convert_gdb_value,
 )
+from app.services.gdb_mi import MiCommandResponse, MiRecord
 
 
 def variable(name: str, value: str, type_name: str = "int") -> GdbVariableSnapshot:
@@ -34,6 +36,54 @@ def test_convert_common_scalar_values() -> None:
     assert convert_gdb_value("true", "_Bool") is True
     assert convert_gdb_value("65 'A'", "char") == "A"
     assert convert_gdb_value("0x4000", "int *") == "0x4000"
+
+
+def test_convert_integer_array_to_list() -> None:
+    assert convert_gdb_value("{5, 3, 8, 1}", "int [4]") == [5, 3, 8, 1]
+
+
+def test_convert_nested_array_to_nested_list() -> None:
+    assert convert_gdb_value("{{1, 2}, {3, 4}}", "int [2][2]") == [
+        [1, 2],
+        [3, 4],
+    ]
+
+
+def test_keep_malformed_array_as_text() -> None:
+    assert convert_gdb_value("{1, {2, 3}", "int [3]") == "{1, {2, 3}"
+
+
+class ArrayVariableSession:
+    def execute(
+        self,
+        command: str,
+        *,
+        wait_for_stop: bool = False,
+        timeout: float = 5.0,
+    ) -> MiCommandResponse:
+        if command.startswith("-var-create"):
+            payload = {
+                "name": "var1",
+                "numchild": "5",
+                "value": "[5]",
+                "type": "int [5]",
+            }
+        else:
+            payload = {}
+        return MiCommandResponse(
+            result=MiRecord(kind="result", raw="", message="done", payload=payload),
+            records=[],
+        )
+
+
+def test_capture_array_keeps_element_values_instead_of_length_summary() -> None:
+    captured = _capture_variable(
+        ArrayVariableSession(),
+        {"name": "arr", "value": "{5, 1, 4, 2, 8}"},
+    )
+
+    assert captured.type == "int [5]"
+    assert captured.value == "{5, 1, 4, 2, 8}"
 
 
 def test_builder_uses_post_execution_state_and_variable_diffs() -> None:

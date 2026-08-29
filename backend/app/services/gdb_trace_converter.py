@@ -94,6 +94,13 @@ def convert_gdb_value(raw_value: str, type_name: str) -> Any:
     if value in {"<optimized out>", "<unavailable>"}:
         return value
 
+    array_type_match = _array_type_match(normalized_type)
+    if array_type_match and value.startswith("{") and value.endswith("}"):
+        return _convert_gdb_array(
+            value,
+            array_type_match.group("element_type").strip(),
+        )
+
     if normalized_type in {"_Bool", "bool"}:
         if value.lower() in {"true", "1"}:
             return True
@@ -127,6 +134,71 @@ def convert_gdb_value(raw_value: str, type_name: str) -> Any:
             pass
 
     return value
+
+
+def _array_type_match(type_name: str) -> Optional[re.Match[str]]:
+    return re.match(
+        r"^(?P<element_type>.+?)\s*(?:\[\d*\])+\s*$",
+        type_name,
+    )
+
+
+def _convert_gdb_array(raw_value: str, element_type: str) -> Any:
+    """Turn a GDB array such as ``{5, 3, 8}`` into a JSON-ready list."""
+
+    inner = raw_value[1:-1].strip()
+    if not inner:
+        return []
+
+    items = _split_gdb_array_items(inner)
+    if items is None:
+        return raw_value
+
+    converted: List[Any] = []
+    for item in items:
+        item = item.strip()
+        if item.startswith("{") and item.endswith("}"):
+            converted.append(_convert_gdb_array(item, element_type))
+        else:
+            converted.append(convert_gdb_value(item, element_type))
+    return converted
+
+
+def _split_gdb_array_items(value: str) -> Optional[List[str]]:
+    """Split values without breaking commas inside nested arrays or strings."""
+
+    items: List[str] = []
+    start = 0
+    depth = 0
+    quote: Optional[str] = None
+    escaped = False
+
+    for index, character in enumerate(value):
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+
+        if character in {'"', "'"}:
+            quote = character
+        elif character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth < 0:
+                return None
+        elif character == "," and depth == 0:
+            items.append(value[start:index])
+            start = index + 1
+
+    if quote is not None or depth != 0:
+        return None
+    items.append(value[start:])
+    return items
 
 
 def capture_gdb_snapshot(
@@ -207,7 +279,13 @@ def _capture_variable(
         response = session.execute(f"-var-create - * {json.dumps(name)}")
         variable_object_name = _optional_string(response.result.payload.get("name"))
         type_name = str(response.result.payload.get("type", "unknown"))
-        value = str(response.result.payload.get("value", value))
+        variable_object_value = str(response.result.payload.get("value", value))
+        is_array_summary = (
+            _array_type_match(type_name) is not None
+            and re.fullmatch(r"\[\d+\]", variable_object_value) is not None
+        )
+        if not is_array_summary:
+            value = variable_object_value
     except GdbMiError:
         pass
     finally:

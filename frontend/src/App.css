@@ -577,6 +577,118 @@ button {
   border-bottom: 1px solid #252b33;
 }
 
+.array-visualizer {
+  background: linear-gradient(180deg, rgb(75 224 173 / 4%), transparent);
+}
+
+.array-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.array-heading .section-label {
+  margin-bottom: 5px;
+}
+
+.array-heading strong {
+  color: #e4e9ef;
+  font: 700 12px/1 var(--mono);
+}
+
+.array-heading > span {
+  color: #677280;
+  font-size: 9px;
+}
+
+.array-chart {
+  height: 178px;
+  margin-top: 14px;
+  padding: 12px 8px 7px;
+  box-sizing: border-box;
+  border: 1px solid #29343a;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 7px;
+  overflow-x: auto;
+  background:
+    linear-gradient(rgb(255 255 255 / 3%) 1px, transparent 1px),
+    #11161a;
+  background-size: 100% 34px;
+}
+
+.array-column {
+  min-width: 32px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.array-value {
+  margin-bottom: 5px;
+  color: #aeb8c5;
+  font: 10px/1 var(--mono);
+  transition: color 180ms ease;
+}
+
+.array-bar {
+  width: 26px;
+  min-height: 5px;
+  border: 1px solid #3bbd91;
+  border-radius: 4px 4px 2px 2px;
+  background: linear-gradient(180deg, #4be0ad, #258a69);
+  box-shadow: 0 5px 14px rgb(75 224 173 / 10%);
+  transition: height 360ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.array-value.changed {
+  color: #ffd075;
+}
+
+.array-bar.changed {
+  border-color: #ffc45a;
+  background: linear-gradient(180deg, #ffd477, #d78a23);
+  box-shadow: 0 5px 18px rgb(255 190 76 / 20%);
+}
+
+.array-index {
+  margin-top: 6px;
+  color: #596473;
+  font: 8px/1 var(--mono);
+}
+
+.array-legend {
+  margin-top: 9px;
+  display: flex;
+  gap: 13px;
+  color: #687482;
+  font-size: 9px;
+}
+
+.array-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.array-legend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.legend-current {
+  background: #4be0ad;
+}
+
+.legend-changed {
+  background: #ffc45a;
+}
+
 .section-label {
   margin-bottom: 10px;
   color: #697483;
