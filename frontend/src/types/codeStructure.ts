@@ -17,6 +17,7 @@ export type NodeKind =
   | 'call'
   | 'return'
   | 'jump'
+  | 'label'
   | 'preprocessor'
 
 export type RelationType =
@@ -79,6 +80,9 @@ export interface BlockDetails {
 export interface LoopDetails {
   loopType: 'for' | 'while' | 'do_while'
   condition?: string
+  initializerNodeIds?: string[]
+  bodyNodeIds?: string[]
+  updateNodeIds?: string[]
 }
 
 export interface ConditionDetails {
@@ -109,6 +113,10 @@ export interface ReturnDetails {
 export interface JumpDetails {
   jumpType: 'break' | 'continue' | 'goto'
   targetLabel?: string
+}
+
+export interface LabelDetails {
+  targetLabel: string
 }
 
 export interface PreprocessorDetails {
@@ -142,11 +150,13 @@ export interface NodeDetailsByKind {
   call: CallDetails
   return: ReturnDetails
   jump: JumpDetails
+  label: LabelDetails
   preprocessor: PreprocessorDetails
 }
 
 export interface CodeStructureNode<K extends NodeKind> {
   id: string
+  stableKey: string
   kind: K
   name?: string
   label: string

@@ -22,6 +22,7 @@ export const mockCodeStructure: CodeStructure = {
   nodes: [
     {
       id: 'file:main.c',
+      stableKey: 'file:main.c',
       kind: 'file',
       name: 'main.c',
       label: 'main.c',
@@ -32,6 +33,7 @@ export const mockCodeStructure: CodeStructure = {
     },
     {
       id: 'function:main',
+      stableKey: 'function:main',
       kind: 'function',
       name: 'main',
       label: 'main()',
@@ -42,6 +44,7 @@ export const mockCodeStructure: CodeStructure = {
     },
     {
       id: 'variable:arr',
+      stableKey: 'function:main/variable:arr',
       kind: 'variable',
       name: 'arr',
       label: 'int arr[5]',
@@ -57,6 +60,7 @@ export const mockCodeStructure: CodeStructure = {
     },
     {
       id: 'loop:outer',
+      stableKey: 'function:main/loop:for:1',
       kind: 'loop',
       label: '外层 for 循环',
       range: sourceRange(7, 15),
@@ -66,6 +70,7 @@ export const mockCodeStructure: CodeStructure = {
     },
     {
       id: 'loop:inner',
+      stableKey: 'function:main/loop:for:1/loop:for:1',
       kind: 'loop',
       label: '内层 for 循环',
       range: sourceRange(8, 14),
@@ -75,6 +80,7 @@ export const mockCodeStructure: CodeStructure = {
     },
     {
       id: 'condition:swap',
+      stableKey: 'function:main/loop:for:1/loop:for:1/condition:if:1',
       kind: 'condition',
       label: 'arr[j] > arr[j + 1]',
       range: sourceRange(9, 13),
@@ -87,6 +93,7 @@ export const mockCodeStructure: CodeStructure = {
     },
     {
       id: 'branch:swap',
+      stableKey: 'function:main/condition:if:1/branch:then',
       kind: 'branch',
       label: '条件成立',
       range: sourceRange(9, 13),
@@ -96,6 +103,7 @@ export const mockCodeStructure: CodeStructure = {
     },
     {
       id: 'assignment:arr-j',
+      stableKey: 'function:main/assignment:arr[j]:1',
       kind: 'assignment',
       label: 'arr[j] = arr[j + 1]',
       range: sourceRange(11),
@@ -109,6 +117,7 @@ export const mockCodeStructure: CodeStructure = {
     },
     {
       id: 'call:printf',
+      stableKey: 'function:main/call:printf:1',
       kind: 'call',
       name: 'printf',
       label: 'printf("%d ", arr[i])',
@@ -122,6 +131,7 @@ export const mockCodeStructure: CodeStructure = {
     },
     {
       id: 'return:main',
+      stableKey: 'function:main/return:1',
       kind: 'return',
       label: 'return 0',
       range: sourceRange(20),
