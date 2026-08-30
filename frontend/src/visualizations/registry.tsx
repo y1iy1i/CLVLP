@@ -1,49 +1,60 @@
 import type { ComponentType } from 'react'
-import type { CodeStructure } from '../types/codeStructure'
-import type { FlowGraph } from '../types/flowGraph'
+import type {
+  VisualizationActions,
+  VisualizationCategory,
+  VisualizationContext,
+  VisualizationScope,
+  VisualizationSupport,
+} from '../types/visualization'
 import { CallGraphModule, FunctionFlowModule } from './VisualizationModules'
 
-export interface VisualizationContext {
-  structure: CodeStructure
-  callGraph: FlowGraph
-  functionGraphs: Map<string, FlowGraph>
-  activeSourceNodeId: string | null
-  ancestorSourceNodeIds: string[]
-  followExecution: boolean
-  onSourceSelect: (sourceNodeId: string) => void
-  onOpenFunction: (functionId: string) => void
-}
+export type { VisualizationContext } from '../types/visualization'
 
 export interface VisualizationModuleProps {
+  instanceId: string
+  scope: VisualizationScope
   context: VisualizationContext
-  instanceKey?: string
+  actions: VisualizationActions
 }
 
 export interface VisualizationModuleDefinition {
-  id: 'call-graph' | 'function-flow'
+  id: string
   title: string
+  category: VisualizationCategory
   component: ComponentType<VisualizationModuleProps>
   defaultSize: { width: number; height: number }
   minSize: { width: number; height: number }
   allowMultiple: boolean
+  supports: (
+    context: VisualizationContext,
+    scope: VisualizationScope,
+  ) => VisualizationSupport
 }
 
 export const visualizationRegistry: VisualizationModuleDefinition[] = [
   {
     id: 'call-graph',
     title: '函数总关系图',
+    category: 'architecture',
     component: CallGraphModule,
     defaultSize: { width: 500, height: 430 },
     minSize: { width: 320, height: 240 },
     allowMultiple: false,
+    supports: () => ({ available: true, priority: 100 }),
   },
   {
     id: 'function-flow',
     title: '函数流程图',
+    category: 'data-flow',
     component: FunctionFlowModule,
     defaultSize: { width: 500, height: 500 },
     minSize: { width: 320, height: 260 },
     allowMultiple: true,
+    supports: (context, scope) => ({
+      available: scope.kind === 'function' && context.static.functionGraphs.has(scope.functionId),
+      reason: scope.kind === 'function' ? undefined : '函数流程图需要一个函数范围。',
+      priority: 90,
+    }),
   },
 ]
 

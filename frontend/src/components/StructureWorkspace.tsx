@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Rnd } from 'react-rnd'
-import { buildAllFlowGraphs } from '../analysis/flowGraphBuilder'
 import { ProgramMapPanel } from './ProgramMapPanel'
 import type { AnalysisPhase } from '../analysis/useCodeStructure'
 import type { CodeStructure } from '../types/codeStructure'
-import type { ExecutionCursor } from '../types/executionCursor'
-import type { ProgramMap } from '../types/programMap'
+import type {
+  VisualizationActions,
+  VisualizationScope,
+} from '../types/visualization'
 import {
   visualizationModuleById,
   type VisualizationContext,
@@ -18,6 +19,7 @@ interface WindowState {
   id: string
   moduleId: ModuleId
   instanceKey?: string
+  scope?: VisualizationScope
   title: string
   x: number
   y: number
@@ -30,15 +32,15 @@ interface WindowState {
 
 interface StructureWorkspaceProps {
   structure: CodeStructure | null
+  context: VisualizationContext | null
   phase: AnalysisPhase
-  activeSourceNodeId: string | null
-  ancestorSourceNodeIds: string[]
   followFunctionId: string | null
   followExecution: boolean
   onFollowExecutionChange: (value: boolean) => void
   onSourceSelect: (sourceNodeId: string) => void
-  programMap: ProgramMap | null
-  cursor: ExecutionCursor | null
+  onSeekStep: (step: number) => void
+  onVariableSelect: (variableId: string) => void
+  onMemoryObjectSelect: (memoryObjectId: string) => void
 }
 
 const WINDOWS_KEY = 'clvlp:visualization-windows:v1'
@@ -57,15 +59,15 @@ const saveWindows = (windows: WindowState[]) =>
 
 export function StructureWorkspace({
   structure,
+  context,
   phase,
-  activeSourceNodeId,
-  ancestorSourceNodeIds,
   followFunctionId,
   followExecution,
   onFollowExecutionChange,
   onSourceSelect,
-  programMap,
-  cursor,
+  onSeekStep,
+  onVariableSelect,
+  onMemoryObjectSelect,
 }: StructureWorkspaceProps) {
   const desktopRef = useRef<HTMLDivElement | null>(null)
   const lastFollowedFunction = useRef<string | null>(null)
@@ -74,7 +76,9 @@ export function StructureWorkspace({
   const [topZ, setTopZ] = useState(() => Math.max(1, ...readWindows().map((window) => window.z)))
   const [workspaceView, setWorkspaceView] = useState<'map' | 'details'>('map')
 
-  const graphs = useMemo(() => structure ? buildAllFlowGraphs(structure) : null, [structure])
+  const graphs = context?.static ?? null
+  const programMap = context?.static.programMap ?? null
+  const cursor = context?.execution.current ?? null
 
   const defaultCallGraphWindow = useCallback((): WindowState => ({
     id: 'call-graph',
@@ -117,16 +121,29 @@ export function StructureWorkspace({
     })
   }, [commitWindows])
 
-  const openWindow = useCallback((moduleId: ModuleId, instanceKey?: string) => {
+  const openWindow = useCallback((
+    moduleId: ModuleId,
+    scope: VisualizationScope = { kind: 'program' },
+  ) => {
     const definition = visualizationModuleById.get(moduleId)
     if (!definition) return
-    const functionNode = moduleId === 'function-flow' && instanceKey
+    const requestedFunctionId = scope.kind === 'function' ? scope.functionId : undefined
+    const functionNode = moduleId === 'function-flow' && requestedFunctionId
       ? structure?.nodes.find((node) =>
-          node.kind === 'function' && (node.id === instanceKey || node.stableKey === instanceKey),
+          node.kind === 'function' && (node.id === requestedFunctionId || node.stableKey === requestedFunctionId),
         )
       : undefined
-    const resolvedInstanceKey = functionNode?.stableKey ?? instanceKey
-    const id = resolvedInstanceKey ? `${moduleId}:${resolvedInstanceKey}` : moduleId
+    const resolvedScope: VisualizationScope = functionNode
+      ? { kind: 'function', functionId: functionNode.id }
+      : scope
+    const resolvedInstanceKey = functionNode?.stableKey
+      ?? (resolvedScope.kind === 'function' ? resolvedScope.functionId : undefined)
+      ?? (resolvedScope.kind === 'module' ? resolvedScope.moduleId : undefined)
+      ?? (resolvedScope.kind === 'variable' ? resolvedScope.variableId : undefined)
+      ?? (resolvedScope.kind === 'memory-object' ? resolvedScope.memoryObjectId : undefined)
+    const id = definition.allowMultiple && resolvedInstanceKey
+      ? `${moduleId}:${resolvedInstanceKey}`
+      : moduleId
     const existing = windows.find((window) => window.id === id)
     if (existing) {
       focusWindow(existing.id)
@@ -140,6 +157,7 @@ export function StructureWorkspace({
       id,
       moduleId,
       instanceKey: resolvedInstanceKey,
+      scope: resolvedScope,
       title: functionNode ? `${functionNode.name ?? '函数'} 流程` : definition.title,
       x: Math.min(18 + offset, Math.max(0, desktopSize.width - width)),
       y: Math.min(18 + offset, Math.max(0, desktopSize.height - height)),
@@ -175,7 +193,7 @@ export function StructureWorkspace({
       graphs?.functionGraphs.has(followFunctionId)
     ) {
       lastFollowedFunction.current = followFunctionId
-      openWindow('function-flow', followFunctionId)
+      openWindow('function-flow', { kind: 'function', functionId: followFunctionId })
     }
   }, [followExecution, followFunctionId, graphs, openWindow])
 
@@ -191,7 +209,7 @@ export function StructureWorkspace({
     return <div className="structure-loading">正在浏览器中加载 Tree-sitter 并分析 C 代码…</div>
   }
 
-  if (!structure || structure.status === 'failed' || !graphs) {
+  if (!structure || structure.status === 'failed' || !graphs || !context) {
     return (
       <div className="structure-error">
         <strong>代码结构分析没有启动成功</strong>
@@ -200,15 +218,20 @@ export function StructureWorkspace({
     )
   }
 
-  const visualizationContext: VisualizationContext = {
-    structure,
-    callGraph: graphs.callGraph,
-    functionGraphs: graphs.functionGraphs,
-    activeSourceNodeId,
-    ancestorSourceNodeIds,
-    followExecution,
-    onSourceSelect,
-    onOpenFunction: (functionId) => openWindow('function-flow', functionId),
+  const visualizationContext = context
+  const visualizationActions: VisualizationActions = {
+    seekStep: onSeekStep,
+    selectSourceNode: onSourceSelect,
+    selectFunction: (functionId) => openWindow(
+      'function-flow',
+      { kind: 'function', functionId },
+    ),
+    selectVariable: onVariableSelect,
+    selectMemoryObject: onMemoryObjectSelect,
+    openVisualization: (moduleId, scope = { kind: 'program' }) =>
+      openWindow(moduleId, scope),
+    closeVisualization: (instanceId) =>
+      commitWindows((current) => current.filter((item) => item.id !== instanceId)),
   }
 
   return (
@@ -230,9 +253,12 @@ export function StructureWorkspace({
         <button className={workspaceView === 'details' ? 'active' : ''} type="button" onClick={() => setWorkspaceView('details')}>详细结构</button>
         {workspaceView === 'details' && (
           <>
-            <button type="button" onClick={() => openWindow('call-graph')}>函数总图</button>
+            <button type="button" onClick={() => openWindow('call-graph', { kind: 'program' })}>函数总图</button>
             {structure.nodes.filter((node) => node.kind === 'function').map((node) => (
-              <button key={node.id} type="button" onClick={() => openWindow('function-flow', node.id)}>
+              <button key={node.id} type="button" onClick={() => openWindow(
+                'function-flow',
+                { kind: 'function', functionId: node.id },
+              )}>
                 打开 {node.name ?? '函数'}
               </button>
             ))}
@@ -253,13 +279,20 @@ export function StructureWorkspace({
           onSourceSelect={onSourceSelect}
           onOpenDetails={(functionId) => {
             setWorkspaceView('details')
-            openWindow('function-flow', functionId)
+            openWindow('function-flow', { kind: 'function', functionId })
           }}
         />
       ) : <div className="visualization-desktop" ref={desktopRef}>
         {windows.map((window) => {
           const definition = visualizationModuleById.get(window.moduleId)
           if (!definition) return null
+          const functionNode = window.instanceKey
+            ? structure.nodes.find((node) => node.kind === 'function' && node.stableKey === window.instanceKey)
+            : undefined
+          const scope = functionNode
+            ? { kind: 'function' as const, functionId: functionNode.id }
+            : window.scope ?? { kind: 'program' as const }
+          if (!definition.supports(visualizationContext, scope).available) return null
           const Module = definition.component
           const maximized = window.maximized
           return (
@@ -314,7 +347,12 @@ export function StructureWorkspace({
                 </header>
                 {!window.minimized && (
                   <div className="visual-window-body">
-                    <Module context={visualizationContext} instanceKey={window.instanceKey} />
+                    <Module
+                      instanceId={window.id}
+                      scope={scope}
+                      context={visualizationContext}
+                      actions={visualizationActions}
+                    />
                   </div>
                 )}
               </section>

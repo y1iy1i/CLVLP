@@ -1,14 +1,12 @@
 import type { ExecutionTrace, RunStatus, TraceStep } from '../types/trace'
 import { ArrayVisualizer } from '../visualizations/array/ArrayVisualizer'
 import { currentComparison } from '../analysis/executionCursor'
-import type { ExecutionCursor } from '../types/executionCursor'
+import type { VisualizationContext } from '../types/visualization'
 
 interface VisualPanelProps {
   trace?: ExecutionTrace
-  step?: TraceStep
-  previousStep?: TraceStep
   error?: string
-  cursor?: ExecutionCursor | null
+  context?: VisualizationContext | null
 }
 
 const statusLabels: Record<RunStatus, string> = {
@@ -100,7 +98,10 @@ interface ChangeRecord extends Record<string, unknown> {
   variableId?: string
 }
 
-export function VisualPanel({ trace, step, previousStep, cursor, error }: VisualPanelProps) {
+export function VisualPanel({ trace, context, error }: VisualPanelProps) {
+  const cursor = context?.execution.current ?? null
+  const step = cursor?.traceStep
+  const previousStep = context?.execution.previous?.traceStep
   const compileStderr =
     trace?.error?.details && typeof trace.error.details.stderr === 'string'
       ? trace.error.details.stderr

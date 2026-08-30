@@ -1,13 +1,12 @@
 import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { currentComparison } from '../analysis/executionCursor'
-import type { CodeStructure } from '../types/codeStructure'
-import type { ExecutionCursor } from '../types/executionCursor'
 import type { TraceVariable } from '../types/trace'
+import type { VisualizationContext } from '../types/visualization'
 
 interface MemoryDrawerProps {
-  cursor: ExecutionCursor | null
-  structure: CodeStructure | null
+  context: VisualizationContext | null
   onSourceSelect: (sourceNodeId: string) => void
+  onVariableSelect: (variableId: string) => void
 }
 
 const OPEN_KEY = 'clvlp:memory-drawer:open:v1'
@@ -16,7 +15,13 @@ const WIDTH_KEY = 'clvlp:memory-drawer:width:v1'
 const displayValue = (value: unknown) =>
   typeof value === 'string' ? value : JSON.stringify(value)
 
-export function MemoryDrawer({ cursor, structure, onSourceSelect }: MemoryDrawerProps) {
+export function MemoryDrawer({
+  context,
+  onSourceSelect,
+  onVariableSelect,
+}: MemoryDrawerProps) {
+  const cursor = context?.execution.current ?? null
+  const structure = context?.static.structure ?? null
   const [open, setOpen] = useState(() => localStorage.getItem(OPEN_KEY) === 'true')
   const [width, setWidth] = useState(() => {
     const stored = Number(localStorage.getItem(WIDTH_KEY))
@@ -65,6 +70,7 @@ export function MemoryDrawer({ cursor, structure, onSourceSelect }: MemoryDrawer
   }
 
   const selectVariable = (variable: TraceVariable) => {
+    onVariableSelect(variable.id)
     const candidates = structure?.nodes.filter(
       (node) => (node.kind === 'variable' || node.kind === 'parameter') && node.name === variable.name,
     ) ?? []
@@ -120,6 +126,9 @@ export function MemoryDrawer({ cursor, structure, onSourceSelect }: MemoryDrawer
                         ? 'is-read'
                         : ''
                     const indices = comparedIndices(variable)
+                    const pointerTarget = variable.pointer?.targetObjectId
+                      ? cursor.memory.objects.find((item) => item.id === variable.pointer?.targetObjectId)
+                      : undefined
                     return (
                       <button key={variable.id} className={className} type="button" onClick={() => selectVariable(variable)}>
                         <span className="memory-variable-title">
@@ -138,7 +147,15 @@ export function MemoryDrawer({ cursor, structure, onSourceSelect }: MemoryDrawer
                           <code>{displayValue(variable.value)}</code>
                         )}
                         {variable.type.includes('*') && typeof variable.value === 'string' && (
-                          <span className="memory-pointer">→ {variable.value} → 目标待 GDB 内存采集</span>
+                          <span className="memory-pointer">
+                            → {variable.value} → {pointerTarget
+                              ? `${pointerTarget.type} @ ${pointerTarget.address ?? '未知地址'}`
+                              : variable.pointer?.status === 'null'
+                                ? 'NULL'
+                                : variable.pointer?.status === 'dangling'
+                                  ? '已释放对象'
+                                  : '目标未解析'}
+                          </span>
                         )}
                       </button>
                     )

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { buildExecutionCursor } from './analysis/executionCursor'
+import { buildAllFlowGraphs } from './analysis/flowGraphBuilder'
+import { buildVisualizationContext } from './analysis/visualizationContext'
 import { useCodeStructure } from './analysis/useCodeStructure'
 import { useProgramMap } from './analysis/useProgramMap'
 import { CodeEditor } from './components/CodeEditor'
@@ -14,6 +16,7 @@ import { runCode } from './services/runCode'
 import type { ExecutionResult } from './types/execution'
 import type { SourceRange } from './types/codeStructure'
 import type { ExecutionTrace } from './types/trace'
+import type { TeachingMode, VisualizationContext } from './types/visualization'
 import './App.css'
 
 type RunMode = 'trace' | 'execute'
@@ -31,24 +34,67 @@ function App() {
   const [rightView, setRightView] = useState<RightView>('runtime')
   const [selectedStructureRange, setSelectedStructureRange] = useState<SourceRange | null>(null)
   const [followExecution, setFollowExecution] = useState(true)
+  const [teachingMode] = useState<TeachingMode>('beginner')
+  const [selectedSourceNodeId, setSelectedSourceNodeId] = useState<string>()
+  const [selectedVariableId, setSelectedVariableId] = useState<string>()
+  const [selectedMemoryObjectId, setSelectedMemoryObjectId] = useState<string>()
   const { structure, phase: structurePhase } = useCodeStructure(code)
   const programMap = useProgramMap(code, structure)
 
   const currentStep =
     currentStepIndex === null ? undefined : executionTrace?.trace[currentStepIndex]
-  const previousTraceStep =
-    currentStepIndex === null || currentStepIndex === 0
-      ? undefined
-      : executionTrace?.trace[currentStepIndex - 1]
   const hasStarted = runMode === 'trace' && currentStepIndex !== null
   const isFirstStep = currentStepIndex === 0
   const isLastStep =
     currentStepIndex !== null &&
     currentStepIndex === (executionTrace?.trace.length ?? 0) - 1
-  const cursor = useMemo(
-    () => buildExecutionCursor(structure, currentStep, previousTraceStep, programMap),
-    [currentStep, previousTraceStep, programMap, structure],
+  const cursorHistory = useMemo(() => executionTrace?.trace.flatMap((step, index, trace) => {
+    const built = buildExecutionCursor(structure, step, trace[index - 1], programMap)
+    return built ? [built] : []
+  }) ?? [], [executionTrace, programMap, structure])
+  const cursor = currentStepIndex === null ? null : cursorHistory[currentStepIndex] ?? null
+  const visualizationGraphs = useMemo(
+    () => structure ? buildAllFlowGraphs(structure) : null,
+    [structure],
   )
+  const visualizationContext = useMemo<VisualizationContext | null>(() => {
+    if (!structure || !visualizationGraphs) return null
+    return buildVisualizationContext({
+      code,
+      entryFile: 'main.c',
+      structure,
+      programMap,
+      callGraph: visualizationGraphs.callGraph,
+      functionGraphs: visualizationGraphs.functionGraphs,
+      trace: executionTrace,
+      isRunning,
+      history: cursorHistory,
+      currentIndex: currentStepIndex,
+      selection: {
+        sourceNodeId: selectedSourceNodeId,
+        functionId: cursor?.functionId,
+        variableId: selectedVariableId,
+        memoryObjectId: selectedMemoryObjectId,
+      },
+      teachingMode,
+      followExecution,
+    })
+  }, [
+    code,
+    currentStepIndex,
+    cursor?.functionId,
+    cursorHistory,
+    executionTrace,
+    followExecution,
+    isRunning,
+    programMap,
+    selectedMemoryObjectId,
+    selectedSourceNodeId,
+    selectedVariableId,
+    structure,
+    teachingMode,
+    visualizationGraphs,
+  ])
   const traceMatch = cursor
     ? {
         currentNodeId: cursor.currentNodeId ?? null,
@@ -58,6 +104,7 @@ function App() {
     : { currentNodeId: null, ancestorIds: [], functionId: null }
 
   const selectStructureNode = useCallback((sourceNodeId: string) => {
+    setSelectedSourceNodeId(sourceNodeId)
     const node = structure?.nodes.find((candidate) => candidate.id === sourceNodeId)
     if (node) setSelectedStructureRange(node.range)
   }, [structure])
@@ -264,22 +311,20 @@ function App() {
             {rightView === 'structure' ? (
               <StructureWorkspace
                 structure={structure}
+                context={visualizationContext}
                 phase={structurePhase}
-                activeSourceNodeId={traceMatch.currentNodeId}
-                ancestorSourceNodeIds={traceMatch.ancestorIds}
                 followFunctionId={traceMatch.functionId}
                 followExecution={followExecution}
                 onFollowExecutionChange={setFollowExecution}
                 onSourceSelect={selectStructureNode}
-                programMap={programMap}
-                cursor={cursor}
+                onSeekStep={setCurrentStepIndex}
+                onVariableSelect={setSelectedVariableId}
+                onMemoryObjectSelect={setSelectedMemoryObjectId}
               />
             ) : runMode === 'trace' ? (
               <VisualPanel
                 trace={executionTrace ?? undefined}
-                step={currentStep}
-                previousStep={previousTraceStep}
-                cursor={cursor}
+                context={visualizationContext}
                 error={runError ?? undefined}
               />
             ) : (
@@ -291,9 +336,9 @@ function App() {
             )}
           </div>
           <MemoryDrawer
-            cursor={runMode === 'trace' ? cursor : null}
-            structure={structure}
+            context={runMode === 'trace' ? visualizationContext : null}
             onSourceSelect={selectStructureNode}
+            onVariableSelect={setSelectedVariableId}
           />
           </div>
         </aside>

@@ -15,6 +15,15 @@ export interface VariableChange extends Record<string, unknown> {
   newValue?: unknown
 }
 
+export interface SemanticFactMetadata {
+  id?: string
+  sourceNodeId?: string
+  location?: SourceLocation
+  activeVariableIds?: string[]
+  activeMemoryObjectIds?: string[]
+  origin?: 'observed' | 'derived'
+}
+
 export interface ComparisonOperand {
   role: 'left' | 'right'
   expression: string
@@ -27,7 +36,7 @@ export interface ComparisonOperand {
   resolved: boolean
 }
 
-export interface ComparisonFact {
+export interface ComparisonFact extends SemanticFactMetadata {
   kind: 'comparison'
   expression: string
   operator: '>' | '<' | '>=' | '<=' | '==' | '!='
@@ -35,7 +44,7 @@ export interface ComparisonFact {
   result?: boolean
 }
 
-export interface ArrayAccessFact {
+export interface ArrayAccessFact extends SemanticFactMetadata {
   kind: 'array_access'
   variableId: string
   variableName: string
@@ -43,17 +52,78 @@ export interface ArrayAccessFact {
   access: 'read' | 'write'
 }
 
-export interface SwapFact {
+export interface SwapFact extends SemanticFactMetadata {
   kind: 'swap'
   variableId: string
   variableName: string
   indices: [number, number]
 }
 
-export interface RecursionFact {
+export interface RecursionFact extends SemanticFactMetadata {
   kind: 'recursion'
   functionName: string
   depth: number
+}
+
+export interface VariableAccessFact extends SemanticFactMetadata {
+  kind: 'variable_access'
+  variableId: string
+  variableName: string
+  access: 'read' | 'write'
+  value?: unknown
+}
+
+export interface PointerAccessFact extends SemanticFactMetadata {
+  kind: 'pointer_access'
+  variableId: string
+  expression: string
+  address?: string
+  targetObjectId?: string
+  access: 'read' | 'write' | 'dereference'
+  resolved: boolean
+}
+
+export interface AssignmentFact extends SemanticFactMetadata {
+  kind: 'assignment'
+  variableId: string
+  oldValue?: unknown
+  newValue?: unknown
+}
+
+export interface FunctionCallFact extends SemanticFactMetadata {
+  kind: 'function_call'
+  functionName: string
+  frameId?: string
+  argumentVariableIds: string[]
+}
+
+export interface FunctionReturnFact extends SemanticFactMetadata {
+  kind: 'function_return'
+  functionName: string
+  frameId?: string
+  returnValue?: unknown
+  returnType?: string
+}
+
+export interface BranchFact extends SemanticFactMetadata {
+  kind: 'branch'
+  expression?: string
+  selected: 'true' | 'false' | 'case' | 'default' | 'unknown'
+}
+
+export interface AllocationFact extends SemanticFactMetadata {
+  kind: 'allocation'
+  operation: 'malloc' | 'calloc' | 'realloc'
+  memoryObjectId?: string
+  address?: string
+  size?: number
+  success: boolean
+}
+
+export interface DeallocationFact extends SemanticFactMetadata {
+  kind: 'deallocation'
+  memoryObjectId?: string
+  address?: string
 }
 
 export type SemanticFact =
@@ -61,6 +131,14 @@ export type SemanticFact =
   | ArrayAccessFact
   | SwapFact
   | RecursionFact
+  | VariableAccessFact
+  | PointerAccessFact
+  | AssignmentFact
+  | FunctionCallFact
+  | FunctionReturnFact
+  | BranchFact
+  | AllocationFact
+  | DeallocationFact
 
 export interface MemorySnapshot {
   variables: TraceVariable[]
