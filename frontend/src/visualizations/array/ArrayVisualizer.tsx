@@ -1,8 +1,11 @@
 import type { TraceStep, TraceVariable } from '../../types/trace'
+import { currentComparison } from '../../analysis/executionCursor'
+import type { ExecutionCursor } from '../../types/executionCursor'
 
 interface ArrayVisualizerProps {
   step: TraceStep
   previousStep?: TraceStep
+  cursor?: ExecutionCursor | null
 }
 
 const isNumberArray = (value: unknown): value is number[] =>
@@ -16,7 +19,7 @@ const findArray = (step?: TraceStep, name?: string): TraceVariable | undefined =
       isNumberArray(variable.value) && (name === undefined || variable.name === name),
   )
 
-export function ArrayVisualizer({ step, previousStep }: ArrayVisualizerProps) {
+export function ArrayVisualizer({ step, previousStep, cursor }: ArrayVisualizerProps) {
   const isWaitingForInitialization =
     step.event.type === 'function_enter' && step.event.data.initial === true
   if (isWaitingForInitialization) return null
@@ -34,6 +37,13 @@ export function ArrayVisualizer({ step, previousStep }: ArrayVisualizerProps) {
       previousValues && previousValues[index] !== value ? [index] : [],
     ),
   )
+  const comparison = currentComparison(cursor)
+  const comparedIndices = new Map<number, 'left' | 'right'>()
+  comparison?.operands.forEach((operand) => {
+    if (operand.variableId === variable.id && operand.indices?.[0] !== undefined) {
+      comparedIndices.set(operand.indices[0], operand.role)
+    }
+  })
   const largestMagnitude = Math.max(...values.map((value) => Math.abs(value)), 1)
 
   return (
@@ -57,13 +67,14 @@ export function ArrayVisualizer({ step, previousStep }: ArrayVisualizerProps) {
         {values.map((value, index) => {
           const height = 24 + (Math.abs(value) / largestMagnitude) * 100
           const changed = changedIndices.has(index)
+          const comparedRole = comparedIndices.get(index)
           return (
             <div className="array-column" key={index}>
-              <span className={`array-value${changed ? ' changed' : ''}`}>
+              <span className={`array-value${changed ? ' changed' : ''}${comparedRole ? ` compared-${comparedRole}` : ''}`}>
                 {value}
               </span>
               <div
-                className={`array-bar${changed ? ' changed' : ''}`}
+                className={`array-bar${changed ? ' changed' : ''}${comparedRole ? ` compared-${comparedRole}` : ''}`}
                 style={{ height: `${height}px` }}
                 title={`${variable.name}[${index}] = ${value}`}
               />
@@ -76,6 +87,7 @@ export function ArrayVisualizer({ step, previousStep }: ArrayVisualizerProps) {
       <div className="array-legend">
         <span><i className="legend-current" />当前值</span>
         <span><i className="legend-changed" />本步发生变化</span>
+        {comparison && <span><i className="legend-compare" />正在比较</span>}
       </div>
     </section>
   )

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Rnd } from 'react-rnd'
 import { buildAllFlowGraphs } from '../analysis/flowGraphBuilder'
+import { ProgramMapPanel } from './ProgramMapPanel'
 import type { AnalysisPhase } from '../analysis/useCodeStructure'
 import type { CodeStructure } from '../types/codeStructure'
+import type { ExecutionCursor } from '../types/executionCursor'
+import type { ProgramMap } from '../types/programMap'
 import {
   visualizationModuleById,
   type VisualizationContext,
@@ -34,6 +37,8 @@ interface StructureWorkspaceProps {
   followExecution: boolean
   onFollowExecutionChange: (value: boolean) => void
   onSourceSelect: (sourceNodeId: string) => void
+  programMap: ProgramMap | null
+  cursor: ExecutionCursor | null
 }
 
 const WINDOWS_KEY = 'clvlp:visualization-windows:v1'
@@ -59,12 +64,15 @@ export function StructureWorkspace({
   followExecution,
   onFollowExecutionChange,
   onSourceSelect,
+  programMap,
+  cursor,
 }: StructureWorkspaceProps) {
   const desktopRef = useRef<HTMLDivElement | null>(null)
   const lastFollowedFunction = useRef<string | null>(null)
   const [windows, setWindows] = useState<WindowState[]>(readWindows)
   const [desktopSize, setDesktopSize] = useState({ width: 560, height: 700 })
   const [topZ, setTopZ] = useState(() => Math.max(1, ...readWindows().map((window) => window.z)))
+  const [workspaceView, setWorkspaceView] = useState<'map' | 'details'>('map')
 
   const graphs = useMemo(() => structure ? buildAllFlowGraphs(structure) : null, [structure])
 
@@ -89,7 +97,7 @@ export function StructureWorkspace({
     })
     observer.observe(element)
     return () => observer.disconnect()
-  }, [])
+  }, [workspaceView])
 
   const commitWindows = useCallback((updater: (current: WindowState[]) => WindowState[]) => {
     setWindows((current) => {
@@ -218,20 +226,37 @@ export function StructureWorkspace({
           />
           跟随执行
         </label>
-        <button type="button" onClick={() => openWindow('call-graph')}>函数总图</button>
-        {structure.nodes.filter((node) => node.kind === 'function').map((node) => (
-          <button key={node.id} type="button" onClick={() => openWindow('function-flow', node.id)}>
-            打开 {node.name ?? '函数'}
-          </button>
-        ))}
-        <button type="button" onClick={resetWindows}>恢复窗口</button>
+        <button className={workspaceView === 'map' ? 'active' : ''} type="button" onClick={() => setWorkspaceView('map')}>教学地图</button>
+        <button className={workspaceView === 'details' ? 'active' : ''} type="button" onClick={() => setWorkspaceView('details')}>详细结构</button>
+        {workspaceView === 'details' && (
+          <>
+            <button type="button" onClick={() => openWindow('call-graph')}>函数总图</button>
+            {structure.nodes.filter((node) => node.kind === 'function').map((node) => (
+              <button key={node.id} type="button" onClick={() => openWindow('function-flow', node.id)}>
+                打开 {node.name ?? '函数'}
+              </button>
+            ))}
+            <button type="button" onClick={resetWindows}>恢复窗口</button>
+          </>
+        )}
       </div>
       {structure.diagnostics.length > 0 && (
         <div className="structure-diagnostics" title={structure.diagnostics.map((item) => item.message).join('\n')}>
           {structure.diagnostics.length} 条诊断 · {structure.diagnostics[0].message}
         </div>
       )}
-      <div className="visualization-desktop" ref={desktopRef}>
+      {workspaceView === 'map' && programMap ? (
+        <ProgramMapPanel
+          map={programMap}
+          structure={structure}
+          activeModulePath={cursor?.activeModulePath ?? []}
+          onSourceSelect={onSourceSelect}
+          onOpenDetails={(functionId) => {
+            setWorkspaceView('details')
+            openWindow('function-flow', functionId)
+          }}
+        />
+      ) : <div className="visualization-desktop" ref={desktopRef}>
         {windows.map((window) => {
           const definition = visualizationModuleById.get(window.moduleId)
           if (!definition) return null
@@ -296,7 +321,7 @@ export function StructureWorkspace({
             </Rnd>
           )
         })}
-      </div>
+      </div>}
     </div>
   )
 }

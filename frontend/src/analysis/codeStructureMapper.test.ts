@@ -8,6 +8,9 @@ import {
   buildVisibleFlowGraph,
   matchTraceLocation,
 } from './flowGraphBuilder'
+import { buildExecutionCursor, currentComparison } from './executionCursor'
+import { buildLocalProgramMap, mergeAgentModules } from './programMap'
+import type { TraceStep } from '../types/trace'
 
 let parser: Parser
 
@@ -247,5 +250,94 @@ describe('C CodeStructure mapper', () => {
     expect(flow.nodes.length).toBeLessThanOrEqual(250)
     expect(flow.diagnostics.some((diagnostic) => diagnostic.code === 'FLOW_TRUNCATED')).toBe(true)
     expect(structure.nodes.length).toBeGreaterThan(flow.nodes.length)
+  })
+
+  it('combines AST conditions with Trace values in one execution cursor', () => {
+    const code = `int main(void) {
+  int arr[3] = {5, 1, 4};
+  int j = 0;
+  if (arr[j] > arr[j + 1]) arr[j] = arr[j + 1];
+  return 0;
+}`
+    const structure = analyze(code)
+    const map = buildLocalProgramMap(structure, code)
+    const step: TraceStep = {
+      step: 4,
+      location: { file: 'main.c', line: 4, column: 3 },
+      event: { type: 'line', data: {} },
+      state: {
+        variables: [
+          { id: 'main:arr', name: 'arr', type: 'int [3]', value: [5, 1, 4], scope: 'main' },
+          { id: 'main:j', name: 'j', type: 'int', value: 0, scope: 'main' },
+        ],
+        callStack: [{ id: 'frame:main:0', function: 'main', variables: ['main:arr', 'main:j'] }],
+        memory: [],
+      },
+      output: { stdout: '', stderr: '' },
+    }
+
+    const cursor = buildExecutionCursor(structure, step, undefined, map)!
+    const comparison = currentComparison(cursor)!
+
+    expect(comparison.expression).toBe('arr[j] > arr[j + 1]')
+    expect(comparison.operands.map((operand) => operand.indices?.[0])).toEqual([0, 1])
+    expect(comparison.operands.map((operand) => operand.value)).toEqual([5, 1])
+    expect(comparison.result).toBe(true)
+    expect(cursor.activeMemoryIds).toContain('main:arr')
+    expect(cursor.activeModulePath.length).toBeGreaterThan(1)
+  })
+
+  it('confirms an array swap from consecutive Trace states', () => {
+    const code = `int main(void) {
+  int arr[2] = {2, 1};
+  arr[0] = arr[1];
+  return 0;
+}`
+    const structure = analyze(code)
+    const makeStep = (step: number, value: number[]): TraceStep => ({
+      step,
+      location: { file: 'main.c', line: 3 },
+      event: { type: 'line', data: {} },
+      state: {
+        variables: [{ id: 'main:arr', name: 'arr', type: 'int [2]', value, scope: 'main' }],
+        callStack: [{ id: 'frame:main:0', function: 'main', variables: ['main:arr'] }],
+        memory: [],
+      },
+      output: { stdout: '', stderr: '' },
+    })
+    const cursor = buildExecutionCursor(
+      structure,
+      makeStep(2, [1, 2]),
+      makeStep(1, [2, 1]),
+      buildLocalProgramMap(structure, code),
+    )!
+
+    expect(cursor.facts).toContainEqual({
+      kind: 'swap',
+      variableId: 'main:arr',
+      variableName: 'arr',
+      indices: [0, 1],
+    })
+  })
+
+  it('creates a concise program map and rejects Agent modules with unknown source IDs', () => {
+    const code = `int fact(int n) { return n < 2 ? 1 : n * fact(n - 1); }
+int main(void) { return fact(4); }`
+    const structure = analyze(code)
+    const local = buildLocalProgramMap(structure, code)
+
+    expect(local.modules.some((module) => module.kind === 'function' && module.title.startsWith('fact'))).toBe(true)
+    expect(local.modules.some((module) => module.family === 'recursion')).toBe(true)
+
+    const merged = mergeAgentModules(local, [{
+      title: '虚构算法',
+      family: 'invented',
+      kind: 'algorithm',
+      sourceNodeIds: ['not-a-real-node'],
+      visualizationHints: ['array'],
+      confidence: 0.9,
+      evidence: ['unsupported'],
+    }], structure)
+    expect(merged.modules.some((module) => module.title === '虚构算法')).toBe(false)
   })
 })

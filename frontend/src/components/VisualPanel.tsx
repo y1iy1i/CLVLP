@@ -1,11 +1,14 @@
 import type { ExecutionTrace, RunStatus, TraceStep } from '../types/trace'
 import { ArrayVisualizer } from '../visualizations/array/ArrayVisualizer'
+import { currentComparison } from '../analysis/executionCursor'
+import type { ExecutionCursor } from '../types/executionCursor'
 
 interface VisualPanelProps {
   trace?: ExecutionTrace
   step?: TraceStep
   previousStep?: TraceStep
   error?: string
+  cursor?: ExecutionCursor | null
 }
 
 const statusLabels: Record<RunStatus, string> = {
@@ -97,7 +100,7 @@ interface ChangeRecord extends Record<string, unknown> {
   variableId?: string
 }
 
-export function VisualPanel({ trace, step, previousStep, error }: VisualPanelProps) {
+export function VisualPanel({ trace, step, previousStep, cursor, error }: VisualPanelProps) {
   const compileStderr =
     trace?.error?.details && typeof trace.error.details.stderr === 'string'
       ? trace.error.details.stderr
@@ -160,7 +163,30 @@ export function VisualPanel({ trace, step, previousStep, error }: VisualPanelPro
         </section>
       )}
 
-      <ArrayVisualizer step={step} previousStep={previousStep} />
+      <ArrayVisualizer step={step} previousStep={previousStep} cursor={cursor} />
+
+      {currentComparison(cursor) && (() => {
+        const comparison = currentComparison(cursor)!
+        return (
+          <section className="visual-section comparison-card" aria-label="当前条件比较">
+            <div className="section-label">正在比较</div>
+            <code>{comparison.expression}</code>
+            <div className="comparison-operands">
+              {comparison.operands.map((operand) => (
+                <div key={operand.role} className={`comparison-${operand.role}`}>
+                  <span>{operand.expression}</span>
+                  <strong>{operand.resolved ? displayValue(operand.value) : '暂不可解析'}</strong>
+                </div>
+              ))}
+            </div>
+            <div className={`comparison-result result-${String(comparison.result)}`}>
+              {comparison.operands[0].resolved && comparison.operands[1].resolved
+                ? `${displayValue(comparison.operands[0].value)} ${comparison.operator} ${displayValue(comparison.operands[1].value)} → ${comparison.result ? 'true' : 'false'}`
+                : '等待 GDB 提供完整指针或内存信息'}
+            </div>
+          </section>
+        )
+      })()}
 
       <section className="visual-section event-card">
         <div className="section-label">当前事件</div>

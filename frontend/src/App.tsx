@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { matchTraceLocation } from './analysis/flowGraphBuilder'
+import { buildExecutionCursor } from './analysis/executionCursor'
 import { useCodeStructure } from './analysis/useCodeStructure'
+import { useProgramMap } from './analysis/useProgramMap'
 import { CodeEditor } from './components/CodeEditor'
 import { ExecutionPanel } from './components/ExecutionPanel'
 import { FileExplorer } from './components/FileExplorer'
 import { VisualPanel } from './components/VisualPanel'
 import { StructureWorkspace } from './components/StructureWorkspace'
+import { MemoryDrawer } from './components/MemoryDrawer'
 import { starterCode } from './mocks/mockTrace'
 import { executeCode } from './services/executeCode'
 import { runCode } from './services/runCode'
@@ -30,6 +32,7 @@ function App() {
   const [selectedStructureRange, setSelectedStructureRange] = useState<SourceRange | null>(null)
   const [followExecution, setFollowExecution] = useState(true)
   const { structure, phase: structurePhase } = useCodeStructure(code)
+  const programMap = useProgramMap(code, structure)
 
   const currentStep =
     currentStepIndex === null ? undefined : executionTrace?.trace[currentStepIndex]
@@ -42,12 +45,17 @@ function App() {
   const isLastStep =
     currentStepIndex !== null &&
     currentStepIndex === (executionTrace?.trace.length ?? 0) - 1
-  const traceMatch = useMemo(
-    () => currentStep
-      ? matchTraceLocation(structure, currentStep.location.file, currentStep.location.line)
-      : { currentNodeId: null, ancestorIds: [], functionId: null },
-    [currentStep, structure],
+  const cursor = useMemo(
+    () => buildExecutionCursor(structure, currentStep, previousTraceStep, programMap),
+    [currentStep, previousTraceStep, programMap, structure],
   )
+  const traceMatch = cursor
+    ? {
+        currentNodeId: cursor.currentNodeId ?? null,
+        ancestorIds: cursor.ancestorNodeIds,
+        functionId: cursor.functionId ?? null,
+      }
+    : { currentNodeId: null, ancestorIds: [], functionId: null }
 
   const selectStructureNode = useCallback((sourceNodeId: string) => {
     const node = structure?.nodes.find((candidate) => candidate.id === sourceNodeId)
@@ -251,6 +259,7 @@ function App() {
               >代码结构</button>
             </div>
           </header>
+          <div className="right-dock-body">
           <div className="right-dock-content">
             {rightView === 'structure' ? (
               <StructureWorkspace
@@ -262,12 +271,15 @@ function App() {
                 followExecution={followExecution}
                 onFollowExecutionChange={setFollowExecution}
                 onSourceSelect={selectStructureNode}
+                programMap={programMap}
+                cursor={cursor}
               />
             ) : runMode === 'trace' ? (
               <VisualPanel
                 trace={executionTrace ?? undefined}
                 step={currentStep}
                 previousStep={previousTraceStep}
+                cursor={cursor}
                 error={runError ?? undefined}
               />
             ) : (
@@ -277,6 +289,12 @@ function App() {
                 isRunning={isRunning}
               />
             )}
+          </div>
+          <MemoryDrawer
+            cursor={runMode === 'trace' ? cursor : null}
+            structure={structure}
+            onSourceSelect={selectStructureNode}
+          />
           </div>
         </aside>
       </div>
