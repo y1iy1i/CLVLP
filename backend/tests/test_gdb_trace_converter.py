@@ -3,6 +3,8 @@ from app.services.gdb_trace_converter import (
     GdbFrameSnapshot,
     GdbStopSnapshot,
     GdbVariableSnapshot,
+    GdbAllocationSnapshot,
+    GdbReturnSnapshot,
     _capture_variable,
     convert_gdb_value,
 )
@@ -189,6 +191,149 @@ def test_builder_records_function_exit_and_cumulative_output() -> None:
     assert returned.event.type == "function_exit"
     assert returned.event.data["frames"][0]["function"] == "add_one"
     assert returned.output.stdout == "total=3\n"
+
+
+def test_builder_exposes_parameter_roles_addresses_and_pointer_targets() -> None:
+    builder = ExecutionTraceBuilder()
+    step = builder.add_snapshot(
+        GdbStopSnapshot(
+            frames=[
+                frame(
+                    0,
+                    "helper",
+                    4,
+                    [
+                        GdbVariableSnapshot(
+                            name="value",
+                            value="10",
+                            type="int",
+                            is_argument=True,
+                            address="0x1000",
+                            size=4,
+                            memory_bytes="0a000000",
+                        ),
+                        GdbVariableSnapshot(
+                            name="pointer",
+                            value="0x1000",
+                            type="int *",
+                            address="0x2000",
+                            size=8,
+                            memory_bytes="0010000000000000",
+                        ),
+                    ],
+                ),
+                frame(1, "main", 10, []),
+            ]
+        )
+    )
+
+    assert step is not None
+    current = step.state.callStack[0]
+    assert current.parentFrameId == step.state.callStack[1].id
+    assert len(current.arguments) == 1
+    assert len(current.locals) == 1
+    value = next(item for item in step.state.variables if item.name == "value")
+    pointer = next(item for item in step.state.variables if item.name == "pointer")
+    assert value.role == "parameter"
+    assert value.storage.address == "0x1000"
+    assert value.storage.size == 4
+    assert value.storage.bytes == "0a000000"
+    assert pointer.pointer is not None
+    assert pointer.pointer.status == "resolved"
+    assert pointer.pointer.targetObjectId == value.id
+
+
+def test_builder_preserves_free_event_when_program_exits_immediately() -> None:
+    builder = ExecutionTraceBuilder()
+    step = builder.add_snapshot(
+        GdbStopSnapshot(
+            frames=[
+                frame(
+                    0,
+                    "main",
+                    4,
+                    [
+                        GdbVariableSnapshot(
+                            name="pointer",
+                            value="0x5000",
+                            type="int *",
+                            address="0x2000",
+                            size=8,
+                            pointee_size=4,
+                        )
+                    ],
+                )
+            ],
+            allocation_events=[
+                GdbAllocationSnapshot("malloc", "0x5000", size=8)
+            ],
+        )
+    )
+    assert step is not None
+    assert step.state.memory[0].lifetime.status == "alive"
+
+    builder.append_terminal_events(
+        [GdbAllocationSnapshot("free", "0x5000")]
+    )
+
+    heap = next(item for item in step.state.memory if item.region == "heap")
+    assert heap.lifetime.status == "freed"
+    assert step.state.variables[0].pointer is not None
+    assert step.state.variables[0].pointer.status == "dangling"
+    assert step.event.data["allocations"][-1]["operation"] == "free"
+def test_builder_records_heap_lifetime_and_function_return_value() -> None:
+    builder = ExecutionTraceBuilder()
+    builder.add_snapshot(GdbStopSnapshot(frames=[frame(0, "main", 10, [])]))
+    entered = builder.add_snapshot(
+        GdbStopSnapshot(
+            frames=[
+                frame(
+                    0,
+                    "allocate",
+                    3,
+                    [GdbVariableSnapshot(
+                        name="pointer",
+                        value="0x3000",
+                        type="int *",
+                        is_argument=False,
+                        address="0x2000",
+                        size=8,
+                    )],
+                ),
+                frame(1, "main", 10, []),
+            ],
+            allocation_events=[
+                GdbAllocationSnapshot("malloc", "0x3000", 16)
+            ],
+        )
+    )
+    assert entered is not None
+    allocate_frame_id = entered.state.callStack[0].id
+    heap = next(item for item in entered.state.memory if item.region == "heap")
+    pointer = next(item for item in entered.state.pointers if item.sourceVariableId.endswith(":pointer"))
+    assert heap.size == 16
+    assert heap.lifetime.status == "alive"
+    assert pointer.targetObjectId == heap.id
+
+    returned = builder.add_snapshot(
+        GdbStopSnapshot(
+            frames=[frame(0, "main", 11, [])],
+            return_events=[GdbReturnSnapshot(
+                frame_id=allocate_frame_id,
+                function="allocate",
+                value="7",
+                type="int",
+                available=True,
+            )],
+            allocation_events=[GdbAllocationSnapshot("free", "0x3000")],
+        )
+    )
+    assert returned is not None
+    assert returned.event.type == "function_exit"
+    assert returned.event.data["frames"][0]["returnValue"] == 7
+    freed = next(item for item in returned.state.memory if item.id == heap.id)
+    assert freed.lifetime.status == "freed"
+    assert freed.lifetime.freedAtStep == returned.step
 
 
 def test_builder_enforces_trace_step_limit() -> None:

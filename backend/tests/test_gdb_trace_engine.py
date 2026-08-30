@@ -27,9 +27,13 @@ class ScriptedVariable:
     name: str
     value: str
     type: str = "int"
+    address: str = "0x1000"
+    size: int = 4
+    is_argument: bool = False
 
     def mi_payload(self) -> str:
-        return f'{{name="{self.name}",value="{self.value}",arg="0"}}'
+        arg = "1" if self.is_argument else "0"
+        return f'{{name="{self.name}",value="{self.value}",arg="{arg}"}}'
 
 
 @dataclass
@@ -59,6 +63,9 @@ class ScriptedStop:
     signal_name: Optional[str] = None
     exit_code: Optional[str] = None
     error: Optional[Type[Exception]] = None
+    memory_events: List[str] = field(default_factory=list)
+    return_events: List[str] = field(default_factory=list)
+    globals: List[ScriptedVariable] = field(default_factory=list)
 
     def stopped_line(self) -> str:
         parts = [f'reason="{self.reason}"']
@@ -123,6 +130,8 @@ class FakeGdbSession:
         if command.startswith("-break-insert"):
             self.breakpoint_sequence += 1
             return self._done(f'bkpt={{number="{self.breakpoint_sequence}"}}')
+        if command.startswith("-interpreter-exec console"):
+            return self._done()
         if command == "-stack-list-frames":
             stack = ",".join(frame.mi_frame for frame in self._current().frames)
             return self._done(f"stack=[{stack}]")
@@ -133,10 +142,22 @@ class FakeGdbSession:
             frame = self._current_frame()
             variables = ",".join(v.mi_payload() for v in frame.variables)
             return self._done(f"variables=[{variables}]")
+        if command.startswith("-symbol-info-variables"):
+            symbols = ",".join(
+                f'{{name="{variable.name}",type="{variable.type}"}}'
+                for variable in self._current().globals
+            )
+            return self._done(
+                f'symbols={{debug=[{{filename="{ENTRY_FILE}",'
+                f'fullname="/workspace/{ENTRY_FILE}",symbols=[{symbols}]}}],'
+                'nondebug=[]}'
+            )
         if command.startswith("-var-create"):
             name = command.rsplit(" ", 1)[-1].strip('"')
             variable = next(
-                v for v in self._current_frame().variables if v.name == name
+                v
+                for v in self._current_frame().variables + self._current().globals
+                if v.name == name
             )
             self.var_sequence += 1
             return self._done(
@@ -145,6 +166,24 @@ class FakeGdbSession:
             )
         if command.startswith("-var-delete"):
             return self._done()
+        if command.startswith("-var-list-children"):
+            return self._done('numchild="0",children=[]')
+        if command.startswith("-data-evaluate-expression"):
+            expression = command.split(" ", 1)[1]
+            variable = next(
+                v
+                for v in self._current_frame().variables + self._current().globals
+                if v.name in expression
+            )
+            if "sizeof" in expression:
+                return self._done(f'value="{variable.size}"')
+            return self._done(f'value="{variable.address}"')
+        if command.startswith("-data-read-memory-bytes"):
+            count = int(command.rsplit(" ", 1)[-1])
+            return self._done(
+                'memory=[{begin="0x1000",offset="0x0",'
+                f'end="0x{0x1000 + count:x}",contents="{"00" * count}"}}]'
+            )
         raise AssertionError(f"Unexpected GDB command: {command}")
 
     def read_output(self) -> tuple[str, str]:
@@ -153,6 +192,16 @@ class FakeGdbSession:
         self.output_consumed = True
         stop = self._current()
         return stop.stdout, stop.stderr
+
+    def read_memory_events(self) -> List[str]:
+        if self.stop_index < 0:
+            return []
+        return list(self._current().memory_events)
+
+    def read_return_events(self) -> List[str]:
+        if self.stop_index < 0:
+            return []
+        return list(self._current().return_events)
 
     def _current(self) -> ScriptedStop:
         assert self.stop_index >= 0, "No stop has been reached yet"
@@ -213,7 +262,46 @@ def test_engine_records_steps_and_normal_exit() -> None:
     assert trace.trace[1].executedLocation.line == 3
     counter = trace.trace[1].state.variables[0]
     assert (counter.name, counter.value) == ("counter", 2)
+    assert counter.storage.address == "0x1000"
+    assert counter.storage.size == 4
+    assert counter.storage.bytes == "00000000"
     assert session.closed is True
+
+
+def test_engine_collects_global_variables_in_the_same_trace_state() -> None:
+    global_count = ScriptedVariable(
+        "global_count",
+        "3",
+        address="0x3000",
+        size=4,
+    )
+    stops = [
+        ScriptedStop(
+            reason="breakpoint-hit",
+            frames=[ScriptedFrame(0, "main", 3)],
+            globals=[global_count],
+        ),
+        ScriptedStop(reason="exited-normally"),
+    ]
+    engine, _ = make_engine(stops)
+
+    trace = engine.run(run_request())
+
+    captured = next(
+        variable
+        for variable in trace.trace[0].state.variables
+        if variable.name == "global_count"
+    )
+    assert captured.id == "global:global_count"
+    assert captured.role == "global"
+    assert captured.scope == "global"
+    assert captured.frameId is None
+    assert captured.storage.region == "global"
+    assert captured.storage.address == "0x3000"
+    memory = next(
+        item for item in trace.trace[0].state.memory if item.id == captured.id
+    )
+    assert memory.region == "global"
 
 
 def test_engine_flushes_stdout_from_exit_stop() -> None:
@@ -436,7 +524,7 @@ def test_engine_maps_compile_error_to_trace() -> None:
 def test_mock_engine_returns_mock_trace() -> None:
     trace = MockTraceEngine().run(run_request())
 
-    assert trace.schemaVersion == "1.1"
+    assert trace.schemaVersion == "1.2"
     assert trace.status == "completed"
     assert len(trace.trace) > 0
 

@@ -19,6 +19,7 @@ static int redirect_descriptor(int target, const char *path, int flags) {
 }
 
 int main(int argc, char **argv) {
+    int memory_descriptor;
     if (argc < 2) {
         return 126;
     }
@@ -40,6 +41,23 @@ int main(int argc, char **argv) {
     setenv("LD_PRELOAD", "/usr/libexec/coreutils/libstdbuf.so", 1);
     setenv("_STDBUF_O", "0", 1);
     setenv("_STDBUF_E", "0", 1);
+
+    memory_descriptor = open(
+        "/tmp/clvlp-trace.memory",
+        O_WRONLY | O_CREAT | O_TRUNC,
+        0600
+    );
+    if (memory_descriptor >= 0) {
+        close(memory_descriptor);
+    }
+    memory_descriptor = open(
+        "/tmp/clvlp-trace.returns",
+        O_WRONLY | O_CREAT | O_TRUNC,
+        0600
+    );
+    if (memory_descriptor >= 0) {
+        close(memory_descriptor);
+    }
 
     execvp(argv[1], &argv[1]);
     dprintf(STDERR_FILENO, "Unable to start traced program.\n");

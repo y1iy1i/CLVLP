@@ -48,6 +48,8 @@ class DockerGdbSession:
         self._mi_session: Optional[GdbMiSession] = None
         self._stdout_offset = 0
         self._stderr_offset = 0
+        self._memory_event_offset = 0
+        self._return_event_offset = 0
 
     def start(self) -> List[MiRecord]:
         if self._mi_session is not None:
@@ -77,6 +79,9 @@ class DockerGdbSession:
             records = self._mi_session.start()
             self._mi_session.execute(
                 "-gdb-set exec-wrapper /usr/local/bin/clvlp-trace-run"
+            )
+            self._mi_session.execute(
+                '-interpreter-exec console "source /usr/local/share/clvlp-gdb-hooks.py"'
             )
             return records
         except Exception:
@@ -123,6 +128,46 @@ class DockerGdbSession:
             self._decode_output(fields["stdout-data"]),
             self._decode_output(fields["stderr-data"]),
         )
+
+    def read_memory_events(self) -> List[str]:
+        """Return allocation records emitted since the previous stop."""
+
+        if self._mi_session is None:
+            raise DockerGdbUnavailable("Docker GDB session has not been started.")
+        result = self._docker(
+            [
+                "exec",
+                self.gdb_container,
+                "/usr/local/bin/clvlp-read-memory-events",
+                str(self._memory_event_offset),
+            ],
+            timeout=GDB_COMMAND_TIMEOUT_SECONDS,
+        )
+        fields = self._parse_simple_fields(
+            result.stdout.decode("ascii", errors="strict")
+        )
+        self._memory_event_offset = int(fields["size"])
+        return self._decode_output(fields["data"]).splitlines()
+
+    def read_return_events(self) -> List[str]:
+        """Return function-finish records emitted since the previous stop."""
+
+        if self._mi_session is None:
+            raise DockerGdbUnavailable("Docker GDB session has not been started.")
+        result = self._docker(
+            [
+                "exec",
+                self.gdb_container,
+                "/usr/local/bin/clvlp-read-return-events",
+                str(self._return_event_offset),
+            ],
+            timeout=GDB_COMMAND_TIMEOUT_SECONDS,
+        )
+        fields = self._parse_simple_fields(
+            result.stdout.decode("ascii", errors="strict")
+        )
+        self._return_event_offset = int(fields["size"])
+        return self._decode_output(fields["data"]).splitlines()
 
     def close(self) -> None:
         if self._mi_session is not None:
@@ -246,6 +291,17 @@ class DockerGdbSession:
         }
         if not expected <= fields.keys():
             raise DockerGdbUnavailable("Invalid trace output reader response.")
+        return fields
+
+    @staticmethod
+    def _parse_simple_fields(output: str) -> Dict[str, str]:
+        fields: Dict[str, str] = {}
+        for line in output.splitlines():
+            name, separator, value = line.partition(":")
+            if separator:
+                fields[name] = value
+        if not {"size", "data"} <= fields.keys():
+            raise DockerGdbUnavailable("Invalid memory event reader response.")
         return fields
 
     @staticmethod

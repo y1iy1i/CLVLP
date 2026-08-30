@@ -17,7 +17,7 @@ def _request() -> AgentAnalysisRequest:
 
 
 def test_unconfigured_agent_falls_back_to_local_analysis() -> None:
-    agent = AlgorithmAgent(AgentSettings())
+    agent = AlgorithmAgent(AgentSettings(base_url="", api_key="", model=""))
 
     result = asyncio.run(agent.analyze(_request()))
 

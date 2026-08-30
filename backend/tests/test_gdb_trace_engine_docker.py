@@ -71,6 +71,23 @@ WHILE_CODE = (
     "}\n"
 )
 
+MEMORY_CODE = (
+    "#include <stdlib.h>\n"
+    "int global_count = 3;\n"
+    "typedef struct Node { int value; struct Node *next; } Node;\n"
+    "int add_one(int value) { int result = value + 1; return result; }\n"
+    "int main(void) {\n"
+    "    int number = 10;\n"
+    "    int *pointer = &number;\n"
+    "    Node *node = malloc(sizeof(Node));\n"
+    "    node->value = add_one(*pointer);\n"
+    "    node->next = NULL;\n"
+    "    int result = node->value;\n"
+    "    free(node);\n"
+    "    return result == 11 ? 0 : 1;\n"
+    "}\n"
+)
+
 
 def test_engine_traces_for_loop_with_output() -> None:
     trace = GdbTraceEngine().run(RunRequest(code=FOR_LOOP_CODE, entryFile="main.c"))
@@ -187,6 +204,110 @@ def test_engine_traces_recursion_with_stable_frames() -> None:
     assert len(set(main_ids)) == 1
 
 
+def test_engine_collects_real_storage_pointers_returns_and_heap_lifetime() -> None:
+    trace = GdbTraceEngine().run(
+        RunRequest(code=MEMORY_CODE, entryFile="main.c")
+    )
+
+    assert trace.status == "completed"
+    assert trace.schemaVersion == "1.2"
+
+    global_count = next(
+        variable
+        for step in trace.trace
+        for variable in step.state.variables
+        if variable.name == "global_count"
+    )
+    assert global_count.id == "global:global_count"
+    assert global_count.role == "global"
+    assert global_count.storage.region == "global"
+    assert global_count.storage.address is not None
+    assert global_count.storage.bytes is not None
+
+    number = next(
+        variable
+        for step in trace.trace
+        for variable in step.state.variables
+        if variable.name == "number" and variable.value == 10
+    )
+    assert number.storage.available is True
+    assert number.storage.address is not None
+    assert number.storage.size == 4
+    assert number.storage.bytes is not None
+
+    assert any(
+        pointer.status == "resolved" and pointer.targetObjectId == number.id
+        for step in trace.trace
+        for pointer in step.state.pointers
+        if pointer.sourceVariableId.endswith(":pointer")
+    )
+    node_pointer = next(
+        pointer
+        for step in trace.trace
+        for pointer in step.state.pointers
+        if pointer.sourceVariableId.endswith(":node")
+        and pointer.status == "resolved"
+    )
+    assert node_pointer.targetType == "Node"
+    assert node_pointer.elementSize == 16
+    assert node_pointer.elementCount == 1
+    add_frame = next(
+        frame
+        for step in trace.trace
+        for frame in step.state.callStack
+        if frame.function == "add_one"
+    )
+    assert add_frame.parentFrameId is not None
+    assert add_frame.arguments
+    argument = next(
+        variable
+        for step in trace.trace
+        for variable in step.state.variables
+        if variable.id in add_frame.arguments
+    )
+    assert argument.role == "parameter"
+    assert argument.value == 10
+
+    exits = [
+        frame
+        for step in trace.trace
+        if step.event.type == "function_exit"
+        for frame in step.event.data.get("frames", [])
+        if frame["function"] == "add_one"
+    ]
+    assert exits
+    assert exits[0]["returnAvailable"] is True
+    assert exits[0]["returnValue"] == 11
+
+    heap_states = [
+        item
+        for step in trace.trace
+        for item in step.state.memory
+        if item.region == "heap"
+    ]
+    assert any(item.size == 16 and item.lifetime.status == "alive" for item in heap_states)
+    assert any(item.readable and item.bytes for item in heap_states if item.lifetime.status == "alive")
+    assert any(item.lifetime.status == "freed" for item in heap_states)
+    assert any(item.type == "Node" for item in heap_states)
+    node_variables = [
+        variable
+        for step in trace.trace
+        for variable in step.state.variables
+        if variable.name == "node" and variable.fields
+    ]
+    assert node_variables
+    assert any(
+        field.fields or field.name in {"value", "next"}
+        for variable in node_variables
+        for field in variable.fields
+    )
+    assert any(
+        pointer.sourceExpression and "next" in pointer.sourceExpression
+        for step in trace.trace
+        for pointer in step.state.pointers
+    )
+
+
 def test_engine_returns_compile_error_trace() -> None:
     code = "int main(void) {\n    return x;\n}\n"
     trace = GdbTraceEngine().run(RunRequest(code=code, entryFile="main.c"))
@@ -275,7 +396,7 @@ def test_run_api_uses_gdb_engine(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert response.status_code == 200
     result = response.json()
-    assert result["schemaVersion"] == "1.1"
+    assert result["schemaVersion"] == "1.2"
     assert result["status"] == "completed"
     assert result["summary"]["exitCode"] == 0
     assert result["summary"]["truncated"] is False

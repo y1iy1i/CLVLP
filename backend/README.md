@@ -36,14 +36,16 @@ breakpoints, step through the program, and request structured line, variable,
 and stack-frame records. Only the GDB container receives `SYS_PTRACE`; the
 normal compile and execute containers retain the stricter capability set.
 
-The Trace converter now reads every stopped frame, obtains variable types and
-values, assigns stable invocation IDs, compares adjacent snapshots, and emits
-the public `ExecutionTrace` schema. In Trace v1.1, `location` is the current GDB
+The Trace converter now reads every stopped frame, obtains parameters, local
+and global variables, types, values, addresses, sizes, raw bytes and compound
+fields, assigns stable invocation IDs, compares adjacent snapshots, and emits
+the public `ExecutionTrace` schema. Trace v1.2 also records resolved pointer
+targets, stack/global/heap memory objects, dynamic allocation lifetimes, and
+real user-function return values. `location` is the current GDB
 stop (the next source line to execute), while `executedLocation` is the previous
 stop whose execution produced the current state.
-Common scalar values become JSON numbers, booleans or characters; pointers,
-arrays and other complex values remain lossless GDB strings for later memory
-model work.
+Common scalar and array values become JSON values. Complex values retain their
+lossless GDB text alongside structured fields and raw memory bytes.
 
 `POST /api/run` selects its engine with `CLVLP_TRACE_ENGINE=mock|gdb`. The
 default remains `mock` for development without Docker; use `gdb` to compile the

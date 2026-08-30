@@ -343,6 +343,7 @@ export function buildExecutionCursor(
       variables: step.state.variables,
       callStack: step.state.callStack,
       objects: step.state.memory,
+      pointers: step.state.pointers ?? [],
     },
     changes,
     facts,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import time
 from pathlib import Path
 from typing import Callable, List, Optional, Protocol, Set, Tuple
@@ -20,6 +21,9 @@ from app.services.gdb_trace_converter import (
     MAX_TRACE_STEPS,
     ExecutionTraceBuilder,
     capture_gdb_snapshot,
+    parse_allocation_event,
+    parse_return_event,
+    read_gdb_memory_bytes,
 )
 from app.services.mock_runner import create_mock_trace
 
@@ -46,6 +50,10 @@ class GdbSession(Protocol):
     ) -> MiCommandResponse: ...
 
     def read_output(self) -> Tuple[str, str]: ...
+
+    def read_memory_events(self) -> List[str]: ...
+
+    def read_return_events(self) -> List[str]: ...
 
     def close(self) -> None: ...
 
@@ -140,13 +148,29 @@ class GdbTraceEngine:
         guarded_lines: Set[Tuple[str, int]] = set()
         pending_stdout = ""
         pending_stderr = ""
+        pending_allocations = []
+        pending_returns = []
 
         while True:
             stdout, stderr = session.read_output()
             pending_stdout += stdout
             pending_stderr += stderr
+            pending_allocations.extend(
+                event
+                for line in session.read_memory_events()
+                if (event := parse_allocation_event(line)) is not None
+            )
+            pending_returns.extend(
+                event
+                for line in session.read_return_events()
+                if (event := parse_return_event(line)) is not None
+            )
 
             if time.monotonic() >= deadline:
+                builder.append_terminal_events(
+                    pending_allocations,
+                    pending_returns,
+                )
                 builder.append_output(pending_stdout, pending_stderr)
                 return (
                     "timeout",
@@ -167,6 +191,10 @@ class GdbTraceEngine:
             reason = str(stop.payload.get("reason", ""))
 
             if reason in {"exited-normally", "exited"}:
+                builder.append_terminal_events(
+                    pending_allocations,
+                    pending_returns,
+                )
                 builder.append_output(pending_stdout, pending_stderr)
                 return (
                     "completed",
@@ -178,6 +206,10 @@ class GdbTraceEngine:
                 )
 
             if reason == "exited-signalled":
+                builder.append_terminal_events(
+                    pending_allocations,
+                    pending_returns,
+                )
                 builder.append_output(pending_stdout, pending_stderr)
                 signal_name = str(stop.payload.get("signal-name", "unknown"))
                 return (
@@ -193,6 +225,8 @@ class GdbTraceEngine:
                     entry_file=entry_file,
                     stdout=pending_stdout,
                     stderr=pending_stderr,
+                    allocation_events=pending_allocations,
+                    return_events=pending_returns,
                 )
                 builder.add_snapshot(snapshot)
                 signal_name = str(stop.payload.get("signal-name", "unknown"))
@@ -214,12 +248,46 @@ class GdbTraceEngine:
                 entry_file=entry_file,
                 stdout=pending_stdout,
                 stderr=pending_stderr,
+                allocation_events=pending_allocations,
+                return_events=pending_returns,
             )
             pending_stdout = ""
             pending_stderr = ""
-            if builder.add_snapshot(snapshot) is None:
+            pending_allocations = []
+            pending_returns = []
+            added_step = builder.add_snapshot(snapshot)
+            if added_step is None:
                 # Reached the step limit; keep the collected trace.
                 return ("completed", None, None)
+
+            for memory_object in added_step.state.memory:
+                if (
+                    memory_object.region != "heap"
+                    or memory_object.lifetime.status != "alive"
+                    or not memory_object.address
+                ):
+                    continue
+                memory_object.bytes = read_gdb_memory_bytes(
+                    session,
+                    memory_object.address,
+                    memory_object.size,
+                )
+                memory_object.readable = memory_object.bytes is not None
+
+            if added_step.event.type == "function_enter":
+                for frame_data in added_step.event.data.get("frames", []):
+                    if not isinstance(frame_data, dict):
+                        continue
+                    frame_id = str(frame_data.get("id", ""))
+                    function = str(frame_data.get("function", ""))
+                    if not frame_id or function == "main":
+                        continue
+                    command = (
+                        f"python clvlp_arm_finish({frame_id!r}, {function!r})"
+                    )
+                    session.execute(
+                        f"-interpreter-exec console {json.dumps(command)}"
+                    )
 
             _guard_current_line(session, stop, guarded_lines)
             response = session.execute("-exec-step", wait_for_stop=True)

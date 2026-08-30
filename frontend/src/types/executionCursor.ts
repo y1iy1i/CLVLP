@@ -1,6 +1,7 @@
 import type { CodeStructure } from './codeStructure'
 import type {
   MemoryObject,
+  PointerReference,
   SourceLocation,
   StackFrame,
   TraceStep,
@@ -65,6 +66,7 @@ export interface MemorySnapshot {
   variables: TraceVariable[]
   callStack: StackFrame[]
   objects: MemoryObject[]
+  pointers: PointerReference[]
 }
 
 export interface ExecutionCursor {

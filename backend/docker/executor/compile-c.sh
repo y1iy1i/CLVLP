@@ -10,4 +10,9 @@ exec gcc \
   -pedantic \
   -fno-diagnostics-color \
   /workspace/main.c \
+  /usr/local/lib/clvlp-memory-wrap.o \
+  -Wl,--wrap=malloc \
+  -Wl,--wrap=calloc \
+  -Wl,--wrap=realloc \
+  -Wl,--wrap=free \
   -o /build/program

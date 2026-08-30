@@ -11,7 +11,7 @@ Monaco Editor 获取代码，React 调用 FastAPI，后端返回模拟 Execution
 - React + TypeScript + Vite 三栏 IDE
 - Monaco C 语言编辑器
 - FastAPI `/api/run` 接口
-- 版本化 Execution Trace v1.1 与统一 `ExecutionCursor`
+- 版本化 Execution Trace v1.2 与统一 `ExecutionCursor`
 - 上一步、下一步和代码行高亮
 - 变量、调用栈、事件与程序输出面板
 - `Trace 演示 / 真实运行` 前端模式切换
@@ -20,7 +20,9 @@ Monaco Editor 获取代码，React 调用 FastAPI，后端返回模拟 Execution
 - FastAPI 自动接口文档与基础测试
 - Docker 隔离的 C11 编译与运行
 - 编译错误、运行错误、超时和输出捕获
-- GDB/MI 行号、变量类型和值、调用栈快照采集
+- GDB/MI 行号、参数、局部/全局变量、类型、值与调用栈快照采集
+- 栈/全局/堆地址、对象大小、原始字节、结构体字段与指针目标采集
+- `malloc/calloc/realloc/free` 生命周期与用户函数真实返回值采集
 - GDB 快照到 Execution Trace 的差异转换器
 - 自动 GDB 单步循环、系统函数跳过和最多500步截断
 - Trace 中独立捕获 stdout 与 stderr，包括无换行和退出时输出
@@ -128,8 +130,8 @@ npm run dev -- --host 127.0.0.1
 
 右侧的“教学地图”是默认入口，只显示函数、算法候选和关键操作。点击模块可定位
 源码，点击“查看内部”才会进入完整流程图。内存抽屉始终保留在右侧边缘，新一次
-Run 会清空上一轮状态；第一版展示变量、数组和调用栈组成的逻辑内存，真实地址、
-堆对象与完整指针关系留给后续 GDB 采集。
+Run 会清空上一轮状态。真实 GDB 模式已经提供栈、全局与堆对象的地址、大小、原始
+字节、结构字段、指针目标及动态分配生命周期；模拟模式仍使用逻辑内存数据。
 
 ### 可选算法识别 Agent
 
@@ -235,5 +237,5 @@ npm run lint
 - Phase 3A：Tree-sitter 单文件代码结构、函数关系图与控制流图（已完成）
 - Phase 3B：Clang AST 严格语义与跨文件分析
 - Phase 4A：ExecutionCursor、教学程序地图、比较动画与逻辑内存抽屉（已完成）
-- Phase 4B：更多事件驱动算法组件、真实指针与堆内存
+- Phase 4B：真实指针、堆内存和函数返回值采集（基础采集已完成）；继续增加事件驱动算法组件
 - Phase 5：LLM 教学解释、错误分析和内容生成
