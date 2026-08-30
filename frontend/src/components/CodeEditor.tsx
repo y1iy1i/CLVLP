@@ -1,16 +1,19 @@
 import { useEffect, useRef } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
+import type { SourceRange } from '../types/codeStructure'
 
 interface CodeEditorProps {
   code: string
   currentLine?: number
+  selectedRange?: SourceRange | null
   onChange: (code: string) => void
 }
 
-export function CodeEditor({ code, currentLine, onChange }: CodeEditorProps) {
+export function CodeEditor({ code, currentLine, selectedRange, onChange }: CodeEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
-  const decorationIds = useRef<string[]>([])
+  const traceDecorationIds = useRef<string[]>([])
+  const structureDecorationIds = useRef<string[]>([])
 
   const handleMount: OnMount = (mountedEditor) => {
     editorRef.current = mountedEditor
@@ -20,8 +23,8 @@ export function CodeEditor({ code, currentLine, onChange }: CodeEditorProps) {
     const mountedEditor = editorRef.current
     if (!mountedEditor) return
 
-    decorationIds.current = mountedEditor.deltaDecorations(
-      decorationIds.current,
+    traceDecorationIds.current = mountedEditor.deltaDecorations(
+      traceDecorationIds.current,
       currentLine
         ? [
             {
@@ -43,6 +46,43 @@ export function CodeEditor({ code, currentLine, onChange }: CodeEditorProps) {
 
     if (currentLine) mountedEditor.revealLineInCenterIfOutsideViewport(currentLine)
   }, [currentLine])
+
+  useEffect(() => {
+    const mountedEditor = editorRef.current
+    if (!mountedEditor) return
+    structureDecorationIds.current = mountedEditor.deltaDecorations(
+      structureDecorationIds.current,
+      selectedRange
+        ? [{
+            range: {
+              startLineNumber: selectedRange.start.line,
+              startColumn: selectedRange.start.column,
+              endLineNumber: selectedRange.end.line,
+              endColumn: Math.max(1, selectedRange.end.column),
+            },
+            options: {
+              className: 'structure-selected-range',
+              inlineClassName: 'structure-selected-inline',
+              overviewRuler: { color: '#72a7ff88', position: 7 },
+            },
+          }]
+        : [],
+    )
+    if (selectedRange) {
+      mountedEditor.setSelection({
+        startLineNumber: selectedRange.start.line,
+        startColumn: selectedRange.start.column,
+        endLineNumber: selectedRange.end.line,
+        endColumn: Math.max(1, selectedRange.end.column),
+      })
+      mountedEditor.revealRangeInCenterIfOutsideViewport({
+        startLineNumber: selectedRange.start.line,
+        startColumn: selectedRange.start.column,
+        endLineNumber: selectedRange.end.line,
+        endColumn: Math.max(1, selectedRange.end.column),
+      })
+    }
+  }, [selectedRange])
 
   return (
     <Editor

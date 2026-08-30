@@ -1,0 +1,116 @@
+.flow-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #11161c;
+}
+
+.graph-reset-button {
+  position: absolute;
+  z-index: 5;
+  top: 8px;
+  right: 8px;
+  height: 27px;
+  padding: 0 9px;
+  border: 1px solid #384351;
+  border-radius: 6px;
+  color: #aeb8c7;
+  background: rgb(22 27 34 / 92%);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.teaching-node {
+  width: 174px;
+  min-height: 58px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #465263;
+  border-radius: 10px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  color: #e1e7ef;
+  background: #1c232c;
+  box-shadow: 0 7px 22px rgb(0 0 0 / 23%);
+  transition: border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+
+.teaching-node strong {
+  overflow: hidden;
+  font: 600 11px/1.35 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teaching-node-kind {
+  color: #7e8b9b;
+  font: 700 8px/1 var(--mono);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.teaching-node-start,
+.teaching-node-end {
+  border-radius: 30px;
+  border-color: #31715b;
+  background: #173027;
+}
+
+.teaching-node-decision {
+  border-color: #876b3c;
+  background: #2c261c;
+}
+
+.teaching-node-loop {
+  border-color: #3f7184;
+  background: #192b34;
+}
+
+.teaching-node-call,
+.teaching-node-function {
+  border-color: #506d9d;
+  background: #1b2638;
+}
+
+.teaching-node-external {
+  border-style: dashed;
+  color: #9fa9b7;
+  background: #191d23;
+}
+
+.teaching-node-return,
+.teaching-node-jump {
+  border-color: #8c5f65;
+  background: #302025;
+}
+
+.teaching-node.is-path-active {
+  border-color: #49ac8c;
+  box-shadow: 0 0 0 2px rgb(75 224 173 / 13%);
+}
+
+.teaching-node.is-active {
+  border-color: #4be0ad;
+  box-shadow: 0 0 0 3px rgb(75 224 173 / 24%), 0 0 24px rgb(75 224 173 / 18%);
+}
+
+.react-flow__handle {
+  width: 7px;
+  height: 7px;
+  border: 1px solid #718095;
+  background: #252d38;
+}
+
+.react-flow__controls {
+  overflow: hidden;
+  border: 1px solid #323b48;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.react-flow__controls-button {
+  border-color: #323b48;
+  color: #aeb8c7;
+  background: #1b2129;
+}

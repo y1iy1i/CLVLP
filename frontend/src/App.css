@@ -210,7 +210,7 @@ button {
 .workspace {
   min-height: 0;
   display: grid;
-  grid-template-columns: 220px minmax(420px, 1fr) 350px;
+  grid-template-columns: 220px minmax(420px, 1fr) clamp(480px, 42vw, 680px);
 }
 
 .explorer,
@@ -373,6 +373,231 @@ button {
 .trace-current-line-gutter {
   border-left: 3px solid #4be0ad;
   margin-left: 3px;
+}
+
+.structure-selected-range {
+  background: rgb(91 145 229 / 10%);
+  box-shadow: inset 2px 0 #72a7ff;
+}
+
+.structure-selected-inline {
+  border-bottom: 1px solid rgb(114 167 255 / 75%);
+}
+
+.right-dock {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 39px minmax(0, 1fr);
+  border-left: 1px solid #282e37;
+  background: #15191f;
+}
+
+.right-dock-tabs {
+  padding: 0 8px 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #282e37;
+  background: #15191f;
+}
+
+.right-dock-tabs > div {
+  height: 100%;
+  display: flex;
+}
+
+.right-dock-tabs button,
+.structure-toolbar button {
+  border: 0;
+  color: #75808e;
+  background: transparent;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.right-dock-tabs > div button {
+  position: relative;
+  padding: 0 12px;
+}
+
+.right-dock-tabs > div button.active {
+  color: #dce4ec;
+}
+
+.right-dock-tabs > div button.active::after {
+  position: absolute;
+  right: 10px;
+  bottom: 0;
+  left: 10px;
+  height: 2px;
+  content: '';
+  background: #4be0ad;
+}
+
+.right-dock-content {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.right-dock-content > .visual-panel {
+  height: 100%;
+  box-sizing: border-box;
+  border-left: 0;
+}
+
+.structure-workspace {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 37px auto minmax(0, 1fr);
+  background: #10151b;
+}
+
+.structure-toolbar {
+  min-width: 0;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  overflow-x: auto;
+  border-bottom: 1px solid #262d36;
+  color: #6f7a88;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.structure-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #a4aeba;
+}
+
+.structure-toolbar input {
+  accent-color: #4be0ad;
+}
+
+.structure-toolbar button {
+  height: 25px;
+  padding: 0 8px;
+  border: 1px solid #333d49;
+  border-radius: 5px;
+  background: #192029;
+}
+
+.analysis-status {
+  color: #66dcb3;
+}
+
+.analysis-status-partial {
+  color: #f1bd62;
+}
+
+.structure-diagnostics {
+  min-width: 0;
+  padding: 6px 11px;
+  overflow: hidden;
+  border-bottom: 1px solid #493e29;
+  color: #d4ad63;
+  background: #272218;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visualization-desktop {
+  position: relative;
+  grid-row: -2 / -1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(rgb(255 255 255 / 2%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 2%) 1px, transparent 1px),
+    #0f141a;
+  background-size: 24px 24px;
+}
+
+.visual-window {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 38px minmax(0, 1fr);
+  border: 1px solid #394452;
+  border-radius: 9px;
+  background: #151b22;
+  box-shadow: 0 15px 42px rgb(0 0 0 / 38%);
+}
+
+.visual-window.is-minimized {
+  grid-template-rows: 38px;
+}
+
+.visual-window-titlebar {
+  padding: 0 8px 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #303945;
+  background: #1a212a;
+  cursor: move;
+  user-select: none;
+}
+
+.visual-window-titlebar strong {
+  overflow: hidden;
+  color: #cdd5df;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visual-window-titlebar > div {
+  display: flex;
+}
+
+.visual-window-titlebar button {
+  width: 25px;
+  height: 25px;
+  border: 0;
+  color: #7f8a98;
+  background: transparent;
+  cursor: pointer;
+}
+
+.visual-window-titlebar button:hover {
+  color: #e2e7ed;
+  background: #29313c;
+}
+
+.visual-window-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.structure-loading,
+.structure-error,
+.visualization-empty {
+  height: 100%;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #788493;
+  text-align: center;
+  font-size: 11px;
+}
+
+.structure-error strong {
+  color: #e69892;
 }
 
 .visual-panel {

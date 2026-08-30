@@ -1,16 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { matchTraceLocation } from './analysis/flowGraphBuilder'
+import { useCodeStructure } from './analysis/useCodeStructure'
 import { CodeEditor } from './components/CodeEditor'
 import { ExecutionPanel } from './components/ExecutionPanel'
 import { FileExplorer } from './components/FileExplorer'
 import { VisualPanel } from './components/VisualPanel'
+import { StructureWorkspace } from './components/StructureWorkspace'
 import { starterCode } from './mocks/mockTrace'
 import { executeCode } from './services/executeCode'
 import { runCode } from './services/runCode'
 import type { ExecutionResult } from './types/execution'
+import type { SourceRange } from './types/codeStructure'
 import type { ExecutionTrace } from './types/trace'
 import './App.css'
 
 type RunMode = 'trace' | 'execute'
+type RightView = 'runtime' | 'structure'
 
 function App() {
   const [code, setCode] = useState(starterCode)
@@ -21,6 +26,10 @@ function App() {
   const [isRunning, setIsRunning] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [runError, setRunError] = useState<string | null>(null)
+  const [rightView, setRightView] = useState<RightView>('runtime')
+  const [selectedStructureRange, setSelectedStructureRange] = useState<SourceRange | null>(null)
+  const [followExecution, setFollowExecution] = useState(true)
+  const { structure, phase: structurePhase } = useCodeStructure(code)
 
   const currentStep =
     currentStepIndex === null ? undefined : executionTrace?.trace[currentStepIndex]
@@ -33,6 +42,17 @@ function App() {
   const isLastStep =
     currentStepIndex !== null &&
     currentStepIndex === (executionTrace?.trace.length ?? 0) - 1
+  const traceMatch = useMemo(
+    () => currentStep
+      ? matchTraceLocation(structure, currentStep.location.file, currentStep.location.line)
+      : { currentNodeId: null, ancestorIds: [], functionId: null },
+    [currentStep, structure],
+  )
+
+  const selectStructureNode = useCallback((sourceNodeId: string) => {
+    const node = structure?.nodes.find((candidate) => candidate.id === sourceNodeId)
+    if (node) setSelectedStructureRange(node.range)
+  }, [structure])
 
   useEffect(() => {
     if (!isPlaying) return
@@ -210,24 +230,54 @@ function App() {
             <CodeEditor
               code={code}
               currentLine={runMode === 'trace' ? currentStep?.location.line : undefined}
+              selectedRange={selectedStructureRange}
               onChange={setCode}
             />
           </div>
         </section>
-        {runMode === 'trace' ? (
-          <VisualPanel
-            trace={executionTrace ?? undefined}
-            step={currentStep}
-            previousStep={previousTraceStep}
-            error={runError ?? undefined}
-          />
-        ) : (
-          <ExecutionPanel
-            result={executionResult ?? undefined}
-            error={runError ?? undefined}
-            isRunning={isRunning}
-          />
-        )}
+        <aside className="right-dock">
+          <header className="right-dock-tabs">
+            <div role="group" aria-label="右侧可视化模式">
+              <button
+                type="button"
+                className={rightView === 'runtime' ? 'active' : ''}
+                onClick={() => setRightView('runtime')}
+              >运行可视化</button>
+              <button
+                type="button"
+                className={rightView === 'structure' ? 'active' : ''}
+                onClick={() => setRightView('structure')}
+              >代码结构</button>
+            </div>
+          </header>
+          <div className="right-dock-content">
+            {rightView === 'structure' ? (
+              <StructureWorkspace
+                structure={structure}
+                phase={structurePhase}
+                activeSourceNodeId={traceMatch.currentNodeId}
+                ancestorSourceNodeIds={traceMatch.ancestorIds}
+                followFunctionId={traceMatch.functionId}
+                followExecution={followExecution}
+                onFollowExecutionChange={setFollowExecution}
+                onSourceSelect={selectStructureNode}
+              />
+            ) : runMode === 'trace' ? (
+              <VisualPanel
+                trace={executionTrace ?? undefined}
+                step={currentStep}
+                previousStep={previousTraceStep}
+                error={runError ?? undefined}
+              />
+            ) : (
+              <ExecutionPanel
+                result={executionResult ?? undefined}
+                error={runError ?? undefined}
+                isRunning={isRunning}
+              />
+            )}
+          </div>
+        </aside>
       </div>
 
       <footer className="statusbar">
