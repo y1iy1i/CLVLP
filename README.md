@@ -11,7 +11,7 @@ Monaco Editor 获取代码，React 调用 FastAPI，后端返回模拟 Execution
 - React + TypeScript + Vite 三栏 IDE
 - Monaco C 语言编辑器
 - FastAPI `/api/run` 接口
-- 版本化 Execution Trace v1.0
+- 版本化 Execution Trace v1.1 与统一 `ExecutionCursor`
 - 上一步、下一步和代码行高亮
 - 变量、调用栈、事件与程序输出面板
 - `Trace 演示 / 真实运行` 前端模式切换
@@ -30,6 +30,11 @@ Monaco Editor 获取代码，React 调用 FastAPI，后端返回模拟 Execution
 - 右侧可视化组件可拖动、缩放、叠放、最小化和最大化
 - 流程节点点击跳转 Monaco，Trace 驱动当前节点与祖先路径高亮
 - 不完整代码的部分结构、诊断信息和可恢复编辑体验
+- 默认简洁的教学程序地图，完整控制流保留为可下钻视图
+- Trace、Monaco、流程图、数组比较卡片和内存视图统一联动
+- 常驻、可折叠并可调宽度的逻辑内存抽屉
+- 递归、嵌套循环、数组比较和交换候选的本地确定性识别
+- 可选的 OpenAI 兼容算法识别 Agent，失败时自动保留本地结果
 
 ## 项目结构
 
@@ -121,6 +126,26 @@ npm run dev -- --host 127.0.0.1
 不依赖 FastAPI、Docker 或 GDB。三栏页面保持固定，只有右侧内部的可视化组件窗口
 可以拖动、改变大小和叠放。
 
+右侧的“教学地图”是默认入口，只显示函数、算法候选和关键操作。点击模块可定位
+源码，点击“查看内部”才会进入完整流程图。内存抽屉始终保留在右侧边缘，新一次
+Run 会清空上一轮状态；第一版展示变量、数组和调用栈组成的逻辑内存，真实地址、
+堆对象与完整指针关系留给后续 GDB 采集。
+
+### 可选算法识别 Agent
+
+本地规则不需要任何模型即可识别递归、数组比较、交换候选和部分算法结构。若希望
+识别算法家族及变种，可复制后端示例配置：
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+然后在 `.env` 中填写 OpenAI 兼容服务的 `BASE_URL`、`API_KEY` 和 `MODEL`，重启
+后端即可。`.env` 不应提交到 Git，API Key 只由 FastAPI 读取，不会发送给浏览器。
+Agent 只能推荐仓库已注册的可视化组件，也不能生成 Trace、运行时数值、内存地址
+或 React 代码。未配置、超时或响应无效时，教学地图继续使用本地确定性结果。
+
 ## API
 
 ### `POST /api/run`
@@ -176,6 +201,13 @@ timeout
 
 每次执行都会禁用网络，限制 CPU、内存、进程数、运行时间和输出大小，并在结束后删除临时容器和构建卷。
 
+### 算法识别 Agent
+
+- `GET /api/agent/status`：查看 Agent 是否完成配置，不返回密钥。
+- `POST /api/agent/analyze`：提交源码和本地结构证据，返回算法模块建议。
+
+请求按源码哈希缓存；前端会丢弃过期编辑产生的结果，并再次验证所有源码节点 ID。
+
 ## 验证
 
 后端测试：
@@ -202,5 +234,6 @@ npm run lint
 - Phase 2B：GDB 行级变量 Trace（真实引擎与 API 接入已完成）
 - Phase 3A：Tree-sitter 单文件代码结构、函数关系图与控制流图（已完成）
 - Phase 3B：Clang AST 严格语义与跨文件分析
-- Phase 4：事件驱动的算法可视化
+- Phase 4A：ExecutionCursor、教学程序地图、比较动画与逻辑内存抽屉（已完成）
+- Phase 4B：更多事件驱动算法组件、真实指针与堆内存
 - Phase 5：LLM 教学解释、错误分析和内容生成

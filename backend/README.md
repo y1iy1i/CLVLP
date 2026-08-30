@@ -38,8 +38,9 @@ normal compile and execute containers retain the stricter capability set.
 
 The Trace converter now reads every stopped frame, obtains variable types and
 values, assigns stable invocation IDs, compares adjacent snapshots, and emits
-the public `ExecutionTrace` schema. A Trace step uses the previous stop's source
-line with the current stop's state, because GDB stops before executing a line.
+the public `ExecutionTrace` schema. In Trace v1.1, `location` is the current GDB
+stop (the next source line to execute), while `executedLocation` is the previous
+stop whose execution produced the current state.
 Common scalar values become JSON numbers, booleans or characters; pointers,
 arrays and other complex values remain lossless GDB strings for later memory
 model work.
@@ -52,6 +53,21 @@ The traced program writes stdout and stderr to separate files inside its
 read-only, network-disabled container. The backend reads incremental output at
 each stop and again at program exit, so single-line programs, output without a
 trailing newline, and stderr remain accurate in the final Trace.
+
+## Optional algorithm recognition Agent
+
+Copy `.env.example` to `.env` and configure an OpenAI-compatible endpoint when
+model-assisted algorithm-family recognition is wanted. The API key stays in the
+backend process and is never returned to the browser or committed to Git.
+
+```bash
+cp .env.example .env
+```
+
+`GET /api/agent/status` reports availability and `POST /api/agent/analyze`
+accepts code plus deterministic AST evidence. Invalid, timed-out, or
+unconfigured Agent calls fail closed so the frontend keeps its local analysis.
+Only allow-listed visualization identifiers are accepted from model output.
 
 ## Tests
 
