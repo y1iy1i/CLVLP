@@ -275,7 +275,7 @@ def test_run_api_uses_gdb_engine(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert response.status_code == 200
     result = response.json()
-    assert result["schemaVersion"] == "1.0"
+    assert result["schemaVersion"] == "1.1"
     assert result["status"] == "completed"
     assert result["summary"]["exitCode"] == 0
     assert result["summary"]["truncated"] is False

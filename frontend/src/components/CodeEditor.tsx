@@ -6,11 +6,12 @@ import type { SourceRange } from '../types/codeStructure'
 interface CodeEditorProps {
   code: string
   currentLine?: number
+  executedLine?: number
   selectedRange?: SourceRange | null
   onChange: (code: string) => void
 }
 
-export function CodeEditor({ code, currentLine, selectedRange, onChange }: CodeEditorProps) {
+export function CodeEditor({ code, currentLine, executedLine, selectedRange, onChange }: CodeEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const traceDecorationIds = useRef<string[]>([])
   const structureDecorationIds = useRef<string[]>([])
@@ -27,6 +28,21 @@ export function CodeEditor({ code, currentLine, selectedRange, onChange }: CodeE
       traceDecorationIds.current,
       currentLine
         ? [
+            ...(executedLine && executedLine !== currentLine
+              ? [{
+                  range: {
+                    startLineNumber: executedLine,
+                    startColumn: 1,
+                    endLineNumber: executedLine,
+                    endColumn: 1,
+                  },
+                  options: {
+                    isWholeLine: true,
+                    className: 'trace-executed-line',
+                    linesDecorationsClassName: 'trace-executed-line-gutter',
+                  },
+                }]
+              : []),
             {
               range: {
                 startLineNumber: currentLine,
@@ -45,7 +61,7 @@ export function CodeEditor({ code, currentLine, selectedRange, onChange }: CodeE
     )
 
     if (currentLine) mountedEditor.revealLineInCenterIfOutsideViewport(currentLine)
-  }, [currentLine])
+  }, [currentLine, executedLine])
 
   useEffect(() => {
     const mountedEditor = editorRef.current

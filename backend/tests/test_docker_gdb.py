@@ -71,7 +71,9 @@ def test_gdb_reads_lines_variables_and_stack() -> None:
     trace = builder.build(status="cancelled", exit_code=None)
 
     assert declaration_step is not None
-    assert declaration_step.location.line == 9
+    assert declaration_step.location.line == 10
+    assert declaration_step.executedLocation is not None
+    assert declaration_step.executedLocation.line == 9
     assert declaration_step.state.variables[0].value == 2
     assert function_step is not None
     assert function_step.event.type == "function_enter"

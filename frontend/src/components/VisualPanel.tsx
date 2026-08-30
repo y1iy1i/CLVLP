@@ -17,7 +17,7 @@ const statusLabels: Record<RunStatus, string> = {
 }
 
 const eventLabels: Record<string, string> = {
-  line_executed: '执行代码行',
+  line_executed: '程序已到达新位置',
   function_enter: '进入函数',
   function_exit: '函数返回',
   declare: '声明变量',
@@ -167,6 +167,14 @@ export function VisualPanel({ trace, step, previousStep, error }: VisualPanelPro
         <div className="event-title">
           <span className="event-pulse" />
           {eventLabels[step.event.type] ?? step.event.type}
+        </div>
+        <div className="event-location">
+          <strong>当前停在第 {step.location.line} 行</strong>
+          {step.executedLocation &&
+            step.executedLocation.file === step.location.file &&
+            step.executedLocation.line !== step.location.line && (
+              <span>第 {step.executedLocation.line} 行执行后产生当前状态</span>
+            )}
         </div>
         {eventSummary(step) && (
           <div className="event-detail">{eventSummary(step)}</div>

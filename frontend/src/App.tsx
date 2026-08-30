@@ -230,6 +230,7 @@ function App() {
             <CodeEditor
               code={code}
               currentLine={runMode === 'trace' ? currentStep?.location.line : undefined}
+              executedLine={runMode === 'trace' ? currentStep?.executedLocation?.line : undefined}
               selectedRange={selectedStructureRange}
               onChange={setCode}
             />

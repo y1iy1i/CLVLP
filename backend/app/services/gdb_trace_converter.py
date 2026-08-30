@@ -332,6 +332,7 @@ class ExecutionTraceBuilder:
             current = assigned.frames[0]
             step = self._create_step(
                 location=self._location(current.snapshot),
+                executed_location=None,
                 event=TraceEvent(
                     type="function_enter",
                     data={
@@ -344,6 +345,7 @@ class ExecutionTraceBuilder:
             )
         else:
             previous_frame = self._previous.frames[0]
+            current_frame = assigned.frames[0]
             changes = self._variable_changes(self._previous, assigned)
             entered, exited = self._frame_changes(self._previous, assigned)
             event = self._event_for_transition(
@@ -353,7 +355,8 @@ class ExecutionTraceBuilder:
                 exited=exited,
             )
             step = self._create_step(
-                location=self._location(previous_frame.snapshot),
+                location=self._location(current_frame.snapshot),
+                executed_location=self._location(previous_frame.snapshot),
                 event=event,
                 snapshot=assigned,
             )
@@ -437,6 +440,7 @@ class ExecutionTraceBuilder:
         self,
         *,
         location: SourceLocation,
+        executed_location: Optional[SourceLocation],
         event: TraceEvent,
         snapshot: _AssignedSnapshot,
     ) -> TraceStep:
@@ -467,6 +471,7 @@ class ExecutionTraceBuilder:
         return TraceStep(
             step=len(self._steps),
             location=location,
+            executedLocation=executed_location,
             event=event,
             state=ExecutionState(
                 variables=variables,

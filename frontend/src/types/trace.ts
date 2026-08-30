@@ -56,6 +56,7 @@ export interface StepOutput {
 export interface TraceStep {
   step: number
   location: SourceLocation
+  executedLocation?: SourceLocation
   event: TraceEvent
   state: ExecutionState
   output: StepOutput
@@ -74,7 +75,7 @@ export interface TraceError {
 }
 
 export interface ExecutionTrace {
-  schemaVersion: '1.0'
+  schemaVersion: '1.0' | '1.1'
   runId: string
   status: RunStatus
   source: TraceSource

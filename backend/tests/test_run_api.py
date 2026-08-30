@@ -43,7 +43,7 @@ def test_run_returns_execution_trace(monkeypatch: pytest.MonkeyPatch) -> None:
     assert response.status_code == 200
 
     result = response.json()
-    assert result["schemaVersion"] == "1.0"
+    assert result["schemaVersion"] == "1.1"
     assert result["status"] == "completed"
     assert result["source"] == {"entryFile": "main.c", "language": "c"}
     assert result["summary"]["totalSteps"] == len(result["trace"])

@@ -75,6 +75,7 @@ class StepOutput(BaseModel):
 class TraceStep(BaseModel):
     step: int = Field(ge=0)
     location: SourceLocation
+    executedLocation: Optional[SourceLocation] = None
     event: TraceEvent
     state: ExecutionState
     output: StepOutput
@@ -93,7 +94,7 @@ class TraceError(BaseModel):
 
 
 class ExecutionTrace(BaseModel):
-    schemaVersion: Literal["1.0"] = "1.0"
+    schemaVersion: Literal["1.0", "1.1"] = "1.1"
     runId: str
     status: RunStatus
     source: TraceSource

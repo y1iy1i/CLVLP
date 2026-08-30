@@ -375,6 +375,15 @@ button {
   margin-left: 3px;
 }
 
+.trace-executed-line {
+  background: linear-gradient(90deg, rgb(255 196 90 / 9%), transparent);
+}
+
+.trace-executed-line-gutter {
+  border-left: 2px solid rgb(255 196 90 / 72%);
+  margin-left: 4px;
+}
+
 .structure-selected-range {
   background: rgb(91 145 229 / 10%);
   box-shadow: inset 2px 0 #72a7ff;
@@ -961,6 +970,23 @@ button {
   color: #93a3b3;
   font-size: 11px;
   line-height: 1.5;
+}
+
+.event-location {
+  margin-top: 10px;
+  padding: 7px 9px;
+  border: 1px solid #2b393b;
+  border-radius: 6px;
+  display: grid;
+  gap: 3px;
+  color: #8fa0ae;
+  background: #12191a;
+  font: 10px/1.45 var(--mono);
+}
+
+.event-location strong {
+  color: #78e8c1;
+  font-weight: 700;
 }
 
 .event-changes {

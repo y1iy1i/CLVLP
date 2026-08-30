@@ -114,7 +114,9 @@ def test_builder_uses_post_execution_state_and_variable_diffs() -> None:
     )
 
     assert executed_declaration is not None
-    assert executed_declaration.location.line == 9
+    assert executed_declaration.location.line == 10
+    assert executed_declaration.executedLocation is not None
+    assert executed_declaration.executedLocation.line == 9
     assert executed_declaration.event.type == "line_executed"
     assert executed_declaration.event.data["changes"] == [
         {
@@ -181,7 +183,9 @@ def test_builder_records_function_exit_and_cumulative_output() -> None:
     )
 
     assert returned is not None
-    assert returned.location.line == 5
+    assert returned.location.line == 11
+    assert returned.executedLocation is not None
+    assert returned.executedLocation.line == 5
     assert returned.event.type == "function_exit"
     assert returned.event.data["frames"][0]["function"] == "add_one"
     assert returned.output.stdout == "total=3\n"

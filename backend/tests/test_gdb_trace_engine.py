@@ -208,7 +208,9 @@ def test_engine_records_steps_and_normal_exit() -> None:
     assert trace.summary.totalSteps == 2
     assert trace.trace[0].event.type == "function_enter"
     assert trace.trace[1].event.type == "line_executed"
-    assert trace.trace[1].location.line == 3
+    assert trace.trace[1].location.line == 4
+    assert trace.trace[1].executedLocation is not None
+    assert trace.trace[1].executedLocation.line == 3
     counter = trace.trace[1].state.variables[0]
     assert (counter.name, counter.value) == ("counter", 2)
     assert session.closed is True
@@ -434,7 +436,7 @@ def test_engine_maps_compile_error_to_trace() -> None:
 def test_mock_engine_returns_mock_trace() -> None:
     trace = MockTraceEngine().run(run_request())
 
-    assert trace.schemaVersion == "1.0"
+    assert trace.schemaVersion == "1.1"
     assert trace.status == "completed"
     assert len(trace.trace) > 0
 
