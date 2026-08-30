@@ -24,6 +24,12 @@ Monaco Editor 获取代码，React 调用 FastAPI，后端返回模拟 Execution
 - GDB 快照到 Execution Trace 的差异转换器
 - 自动 GDB 单步循环、系统函数跳过和最多500步截断
 - Trace 中独立捕获 stdout 与 stderr，包括无换行和退出时输出
+- 浏览器内 Tree-sitter C11 结构分析，输入停止约 400ms 后自动更新
+- 通用 `CodeStructure`、作用域、函数调用、读写、类型和 include 关系
+- 函数总关系图与单函数控制流图
+- 右侧可视化组件可拖动、缩放、叠放、最小化和最大化
+- 流程节点点击跳转 Monaco，Trace 驱动当前节点与祖先路径高亮
+- 不完整代码的部分结构、诊断信息和可恢复编辑体验
 
 ## 项目结构
 
@@ -32,6 +38,8 @@ CLVLP/
 ├── frontend/              React + TypeScript + Vite
 │   └── src/
 │       ├── components/    IDE 与可视化组件
+│       ├── analysis/      Tree-sitter Worker、结构映射与流程图生成
+│       ├── visualizations/可视化注册表、函数关系图与流程图
 │       ├── services/      FastAPI 请求
 │       ├── mocks/         Phase 1 示例代码和模拟数据
 │       └── types/         Trace TypeScript 协议
@@ -109,6 +117,10 @@ npm run dev -- --host 127.0.0.1
 - `Trace 追踪`：调用 `/api/run`，播放模拟 Trace 或真实 GDB Trace。
 - `真实运行`：调用 `/api/execute`，在 Docker 中编译当前编辑器代码并展示真实结果。
 
+右侧可以在 `运行可视化 / 代码结构` 之间切换。代码结构分析完全在浏览器中完成，
+不依赖 FastAPI、Docker 或 GDB。三栏页面保持固定，只有右侧内部的可视化组件窗口
+可以拖动、改变大小和叠放。
+
 ## API
 
 ### `POST /api/run`
@@ -179,6 +191,8 @@ python -m pytest -q
 ```bash
 cd frontend
 npm run build
+npm test
+npm run lint
 ```
 
 ## 开发路线
@@ -186,6 +200,7 @@ npm run build
 - Phase 1：编辑器、模拟 Trace、前后端通信和基础可视化
 - Phase 2A：Docker 隔离的真实 C 编译与运行（已完成）
 - Phase 2B：GDB 行级变量 Trace（真实引擎与 API 接入已完成）
-- Phase 3：Clang AST 或 Tree-sitter 代码结构分析
+- Phase 3A：Tree-sitter 单文件代码结构、函数关系图与控制流图（已完成）
+- Phase 3B：Clang AST 严格语义与跨文件分析
 - Phase 4：事件驱动的算法可视化
 - Phase 5：LLM 教学解释、错误分析和内容生成
