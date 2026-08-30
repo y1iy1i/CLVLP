@@ -7,6 +7,7 @@ export function CallGraphModule({ context }: VisualizationModuleProps) {
       graph={context.callGraph}
       activeSourceNodeId={context.activeSourceNodeId}
       ancestorSourceNodeIds={context.ancestorSourceNodeIds}
+      autoExpandAncestors={context.followExecution}
       onSourceSelect={context.onSourceSelect}
       onOpenFunction={context.onOpenFunction}
     />
@@ -24,6 +25,7 @@ export function FunctionFlowModule({ context, instanceKey }: VisualizationModule
       graph={graph}
       activeSourceNodeId={context.activeSourceNodeId}
       ancestorSourceNodeIds={context.ancestorSourceNodeIds}
+      autoExpandAncestors={context.followExecution}
       onSourceSelect={context.onSourceSelect}
     />
   )

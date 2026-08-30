@@ -31,6 +31,8 @@ export interface FlowNode {
   kind: FlowNodeKind
   label: string
   sourceNodeId: string | null
+  parentGroupId?: string
+  collapsible?: boolean
   details?: Record<string, unknown>
 }
 

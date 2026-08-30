@@ -2,7 +2,12 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { fileURLToPath } from 'node:url'
 import { Language, Parser } from 'web-tree-sitter'
 import { mapCCodeStructure } from './codeStructureMapper'
-import { buildCallGraph, buildFunctionFlowGraph, matchTraceLocation } from './flowGraphBuilder'
+import {
+  buildCallGraph,
+  buildFunctionFlowGraph,
+  buildVisibleFlowGraph,
+  matchTraceLocation,
+} from './flowGraphBuilder'
 
 let parser: Parser
 
@@ -123,6 +128,53 @@ describe('C CodeStructure mapper', () => {
     expect(match.currentNodeId).not.toBeNull()
     expect(match.functionId).not.toBeNull()
     expect(match.ancestorIds.length).toBeGreaterThan(0)
+  })
+
+  it('matches consecutive declarations without shifting to the previous line', () => {
+    const structure = analyze(`int main(void) {
+      int first = 1;
+      int second = 2;
+      return second;
+    }`)
+    const second = structure.nodes.find(
+      (node) => node.kind === 'variable' && node.name === 'second',
+    )!
+    expect(matchTraceLocation(structure, 'main.c', 3).currentNodeId).toBe(second.id)
+  })
+
+  it('keeps the full flow while progressively revealing nested control flow', () => {
+    const structure = analyze(`int main(void) {
+      int values[3] = {3, 2, 1};
+      for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2 - i; j++) {
+          if (values[j] > values[j + 1]) values[j] = values[j + 1];
+        }
+      }
+      return 0;
+    }`)
+    const main = structure.nodes.find((node) => node.kind === 'function')!
+    const full = buildFunctionFlowGraph(structure, main.id)!
+    const fullNodeCount = full.nodes.length
+    const loops = full.nodes.filter((node) => node.kind === 'loop')
+    const outer = loops.find((node) => !node.parentGroupId)!
+    const inner = loops.find((node) => node.parentGroupId === outer.id)!
+    const decision = full.nodes.find((node) => node.kind === 'decision')!
+
+    const collapsed = buildVisibleFlowGraph(full, new Set())
+    expect(collapsed.nodes.some((node) => node.id === outer.id)).toBe(true)
+    expect(collapsed.nodes.some((node) => node.id === inner.id)).toBe(false)
+
+    const outerExpanded = buildVisibleFlowGraph(full, new Set([outer.stableKey]))
+    expect(outerExpanded.nodes.some((node) => node.id === inner.id)).toBe(true)
+    expect(outerExpanded.nodes.some((node) => node.id === decision.id)).toBe(false)
+
+    const nestedExpanded = buildVisibleFlowGraph(
+      full,
+      new Set([outer.stableKey, inner.stableKey]),
+    )
+    expect(nestedExpanded.nodes.some((node) => node.id === decision.id)).toBe(true)
+    expect(full.nodes).toHaveLength(fullNodeCount)
+    expect(full.nodes.length).toBeGreaterThan(collapsed.nodes.length)
   })
 
   it('keeps prototypes while resolving calls to definitions and leaves function pointers unresolved', () => {

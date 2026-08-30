@@ -21,8 +21,9 @@
 }
 
 .teaching-node {
-  width: 174px;
-  min-height: 58px;
+  position: relative;
+  width: 184px;
+  min-height: 62px;
   box-sizing: border-box;
   padding: 10px 12px;
   border: 1px solid #465263;
@@ -34,6 +35,45 @@
   background: #1c232c;
   box-shadow: 0 7px 22px rgb(0 0 0 / 23%);
   transition: border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+
+.flow-expand-button {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  padding: 0;
+  border: 1px solid #536576;
+  border-radius: 6px;
+  color: #c1d2df;
+  background: #111920;
+  font: 700 15px/20px var(--mono);
+  cursor: pointer;
+}
+
+.flow-expand-button:hover {
+  border-color: #4be0ad;
+  color: #78e8c1;
+}
+
+.graph-layout-status {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #7f8b99;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid #323b48;
+  border-radius: 7px;
+  background: #11161c;
 }
 
 .teaching-node strong {

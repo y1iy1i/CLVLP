@@ -198,6 +198,7 @@ export function StructureWorkspace({
     functionGraphs: graphs.functionGraphs,
     activeSourceNodeId,
     ancestorSourceNodeIds,
+    followExecution,
     onSourceSelect,
     onOpenFunction: (functionId) => openWindow('function-flow', functionId),
   }

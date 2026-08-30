@@ -1,5 +1,5 @@
 import type { AnyCodeStructureNode, CodeStructure } from '../types/codeStructure'
-import type { FlowEdgeType, FlowGraph, FlowNodeKind } from '../types/flowGraph'
+import type { FlowEdgeType, FlowGraph, FlowNode, FlowNodeKind } from '../types/flowGraph'
 
 const MAX_FLOW_NODES = 250
 
@@ -29,6 +29,7 @@ interface BuildContext {
   endId: string
   gotoEdges: Array<{ from: string; label: string }>
   labels: Map<string, string>
+  groupStack: string[]
 }
 
 const pushEdge = (
@@ -57,11 +58,28 @@ const pushSourceNode = (context: BuildContext, source: AnyCodeStructureNode) => 
       kind: flowKindFor(source) ?? 'process',
       label: source.kind === 'variable' ? `初始化 ${source.name ?? source.label}` : source.label,
       sourceNodeId: source.id,
+      parentGroupId: context.groupStack.at(-1),
+      collapsible: source.kind === 'condition' || source.kind === 'loop',
       details: { sourceKind: source.kind },
     })
   }
   if (source.kind === 'label' && source.name) context.labels.set(source.name, id)
   return id
+}
+
+const buildGroupedSequence = (
+  context: BuildContext,
+  groupId: string,
+  sources: AnyCodeStructureNode[],
+  nextId: string,
+  targets: LoopTargets,
+) => {
+  context.groupStack.push(groupId)
+  try {
+    return buildSequence(context, sources, nextId, targets)
+  } finally {
+    context.groupStack.pop()
+  }
 }
 
 interface LoopTargets {
@@ -107,8 +125,9 @@ function buildSource(
     )
     if (caseBranches.length) {
       caseBranches.forEach((branch) => {
-        const branchEntry = buildSequence(
+        const branchEntry = buildGroupedSequence(
           context,
+          decisionId,
           childrenOf(branch, context.nodesById),
           nextId,
           targets,
@@ -123,10 +142,10 @@ function buildSource(
       })
     } else {
       const thenEntry = thenBranch
-        ? buildSequence(context, childrenOf(thenBranch, context.nodesById), nextId, targets)
+        ? buildGroupedSequence(context, decisionId, childrenOf(thenBranch, context.nodesById), nextId, targets)
         : nextId
       const elseEntry = elseBranch
-        ? buildSequence(context, childrenOf(elseBranch, context.nodesById), nextId, targets)
+        ? buildGroupedSequence(context, decisionId, childrenOf(elseBranch, context.nodesById), nextId, targets)
         : nextId
       pushEdge(context, decisionId, thenEntry, 'true', '是')
       pushEdge(context, decisionId, elseEntry, 'false', '否')
@@ -145,8 +164,9 @@ function buildSource(
     const bodyChildren = bodyIds.size
       ? children.filter((child) => bodyIds.has(child.id))
       : children.filter((child) => !initializerIds.has(child.id) && child.kind !== 'parameter')
-    const bodyEntry = buildSequence(
+    const bodyEntry = buildGroupedSequence(
       context,
+      loopId,
       bodyChildren,
       loopId,
       { continueTo: loopId, breakTo: nextId },
@@ -154,7 +174,7 @@ function buildSource(
     pushEdge(context, loopId, bodyEntry, 'true', '继续循环')
     pushEdge(context, loopId, nextId, 'false', '退出循环')
     const loopEntry = source.details.loopType === 'do_while' ? bodyEntry : loopId
-    return buildSequence(context, initializerChildren, loopEntry, targets)
+    return buildGroupedSequence(context, loopId, initializerChildren, loopEntry, targets)
   }
 
   const kind = flowKindFor(source)
@@ -223,6 +243,7 @@ export function buildFunctionFlowGraph(
     endId,
     gotoEdges: [],
     labels: new Map(),
+    groupStack: [],
   }
   const body = childrenOf(functionNode, nodesById).filter((node) => node.kind !== 'parameter')
   const entry = buildSequence(context, body, endId, {})
@@ -323,7 +344,73 @@ export function buildAllFlowGraphs(structure: CodeStructure) {
 
 export function isLineInsideNode(node: AnyCodeStructureNode, file: string, line: number) {
   if (node.range.file !== file) return false
-  return line >= node.range.start.line && line <= node.range.end.line
+  if (line < node.range.start.line || line > node.range.end.line) return false
+  if (line < node.range.end.line) return true
+  return node.range.end.column > 1
+}
+
+const isDescendantHidden = (
+  node: FlowNode,
+  nodesById: Map<string, FlowNode>,
+  expandedStableKeys: Set<string>,
+) => {
+  let parentId = node.parentGroupId
+  while (parentId) {
+    const parent = nodesById.get(parentId)
+    if (!parent) break
+    if (!expandedStableKeys.has(parent.stableKey)) return true
+    parentId = parent.parentGroupId
+  }
+  return false
+}
+
+/** Derive a teaching-friendly view without mutating or discarding the full CFG. */
+export function buildVisibleFlowGraph(
+  graph: FlowGraph,
+  expandedStableKeys: Set<string>,
+): FlowGraph {
+  if (graph.kind !== 'function_flow') return graph
+  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
+  const visibleNodes = graph.nodes.filter(
+    (node) => !isDescendantHidden(node, nodesById, expandedStableKeys),
+  )
+  const visibleIds = new Set(visibleNodes.map((node) => node.id))
+  const outgoing = new Map<string, typeof graph.edges>()
+  for (const edge of graph.edges) {
+    const edges = outgoing.get(edge.from) ?? []
+    edges.push(edge)
+    outgoing.set(edge.from, edges)
+  }
+
+  const visibleEdges: typeof graph.edges = []
+  const seen = new Set<string>()
+  for (const source of visibleNodes) {
+    const queue = [...(outgoing.get(source.id) ?? [])]
+    const visitedHidden = new Set<string>()
+    while (queue.length) {
+      const edge = queue.shift()!
+      if (edge.to === source.id) continue
+      if (visibleIds.has(edge.to)) {
+        const collapsed = edge.from !== source.id
+        const key = `${source.id}:${edge.to}:${collapsed ? 'next' : edge.type}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        visibleEdges.push({
+          ...edge,
+          id: collapsed ? `${edge.id}:collapsed:${source.id}` : edge.id,
+          from: source.id,
+          type: collapsed ? 'next' : edge.type,
+          label: collapsed ? undefined : edge.label,
+        })
+        continue
+      }
+      if (visitedHidden.has(edge.to)) continue
+      visitedHidden.add(edge.to)
+      queue.push(...(outgoing.get(edge.to) ?? []))
+    }
+  }
+
+  return { ...graph, nodes: visibleNodes, edges: visibleEdges }
 }
 
 export function matchTraceLocation(

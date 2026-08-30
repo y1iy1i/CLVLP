@@ -9,6 +9,7 @@ export interface VisualizationContext {
   functionGraphs: Map<string, FlowGraph>
   activeSourceNodeId: string | null
   ancestorSourceNodeIds: string[]
+  followExecution: boolean
   onSourceSelect: (sourceNodeId: string) => void
   onOpenFunction: (functionId: string) => void
 }
