@@ -312,11 +312,13 @@ describe('C CodeStructure mapper', () => {
       buildLocalProgramMap(structure, code),
     )!
 
-    expect(cursor.facts).toContainEqual({
+    expect(cursor.facts.find((fact) => fact.kind === 'swap')).toMatchObject({
       kind: 'swap',
       variableId: 'main:arr',
       variableName: 'arr',
       indices: [0, 1],
+      origin: 'derived',
+      location: { file: 'main.c', line: 3 },
     })
   })
 

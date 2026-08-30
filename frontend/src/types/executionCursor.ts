@@ -16,12 +16,12 @@ export interface VariableChange extends Record<string, unknown> {
 }
 
 export interface SemanticFactMetadata {
-  id?: string
+  id: string
   sourceNodeId?: string
-  location?: SourceLocation
-  activeVariableIds?: string[]
-  activeMemoryObjectIds?: string[]
-  origin?: 'observed' | 'derived'
+  location: SourceLocation
+  activeVariableIds: string[]
+  activeMemoryObjectIds: string[]
+  origin: 'observed' | 'derived'
 }
 
 export interface ComparisonOperand {
@@ -79,6 +79,7 @@ export interface PointerAccessFact extends SemanticFactMetadata {
   expression: string
   address?: string
   targetObjectId?: string
+  status: 'resolved' | 'null' | 'dangling' | 'unreadable' | 'unknown'
   access: 'read' | 'write' | 'dereference'
   resolved: boolean
 }
@@ -86,6 +87,7 @@ export interface PointerAccessFact extends SemanticFactMetadata {
 export interface AssignmentFact extends SemanticFactMetadata {
   kind: 'assignment'
   variableId: string
+  changeKind: 'declare' | 'update' | 'out_of_scope'
   oldValue?: unknown
   newValue?: unknown
 }
@@ -95,12 +97,14 @@ export interface FunctionCallFact extends SemanticFactMetadata {
   functionName: string
   frameId?: string
   argumentVariableIds: string[]
+  callKind: 'entry' | 'direct' | 'recursive'
 }
 
 export interface FunctionReturnFact extends SemanticFactMetadata {
   kind: 'function_return'
   functionName: string
   frameId?: string
+  returnAvailable: boolean
   returnValue?: unknown
   returnType?: string
 }
@@ -116,6 +120,7 @@ export interface AllocationFact extends SemanticFactMetadata {
   operation: 'malloc' | 'calloc' | 'realloc'
   memoryObjectId?: string
   address?: string
+  previousAddress?: string
   size?: number
   success: boolean
 }
@@ -124,6 +129,19 @@ export interface DeallocationFact extends SemanticFactMetadata {
   kind: 'deallocation'
   memoryObjectId?: string
   address?: string
+  operation: 'free' | 'realloc'
+}
+
+export interface OutputFact extends SemanticFactMetadata {
+  kind: 'output'
+  channel: 'stdout' | 'stderr'
+  text: string
+}
+
+export interface RuntimeErrorFact extends SemanticFactMetadata {
+  kind: 'runtime_error'
+  signal?: string
+  message: string
 }
 
 export type SemanticFact =
@@ -139,6 +157,8 @@ export type SemanticFact =
   | BranchFact
   | AllocationFact
   | DeallocationFact
+  | OutputFact
+  | RuntimeErrorFact
 
 export interface MemorySnapshot {
   variables: TraceVariable[]

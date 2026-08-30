@@ -68,6 +68,9 @@ access, assignments, swaps, calls, returns, branches, allocations,
 deallocations and recursion. Facts may be observed from Trace or derived from
 Trace plus CodeStructure. No Agent is required to create runtime facts.
 
-The initial adapter generates beginner explanations for comparisons, swaps,
-allocations, frees, variable changes and ordinary line stops. More templates
-can be added without changing visualization modules.
+`buildSemanticFacts()` owns this conversion. Current-line operations use
+`location`; effects that have just happened use `executedLocation`. Every Fact
+has a stable ID, source location, origin, related variables and related memory
+objects. The teaching-step adapter consumes these standard Facts rather than
+reading raw event payloads. More teaching templates can therefore be added
+without changing Trace producers or visualization modules.
