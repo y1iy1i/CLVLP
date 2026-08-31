@@ -926,6 +926,10 @@ button {
 
 .memory-legend i.read { background: #4f91d0; }
 .memory-legend i.written { background: #e39b42; }
+.memory-drawer-section-title { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.memory-drawer-section-title h3 { margin: 0; }
+.memory-drawer-section-title button { padding: 4px 6px; border: 1px solid #385064; color: #83b8d6; background: #121b23; font-size: 7px; cursor: pointer; }
+.memory-drawer-map > small { color: #64717e; font: 7px/1.4 var(--mono); }
 
 .analysis-status {
   color: #66dcb3;

@@ -8,6 +8,8 @@ import type {
 } from '../types/visualization'
 import { CallGraphModule, FunctionFlowModule } from './VisualizationModules'
 import { VariableInspector } from './variables/VariableInspector'
+import { MemoryGraph } from './memory/MemoryGraph'
+import { DataStructureView } from './dataStructure/DataStructureView'
 
 export type { VisualizationContext } from '../types/visualization'
 
@@ -42,6 +44,35 @@ export const visualizationRegistry: VisualizationModuleDefinition[] = [
     minSize: { width: 340, height: 260 },
     allowMultiple: false,
     supports: () => ({ available: true, priority: 110 }),
+  },
+  {
+    id: 'memory-graph',
+    title: '内存与指针图',
+    category: 'memory',
+    component: MemoryGraph,
+    defaultSize: { width: 680, height: 580 },
+    minSize: { width: 440, height: 340 },
+    allowMultiple: false,
+    supports: (context) => ({
+      available: Boolean(context.execution.current),
+      reason: context.execution.current ? undefined : '运行 Trace 后才能查看内存图。',
+      priority: 105,
+    }),
+  },
+  {
+    id: 'data-structure',
+    title: '数据结构视图',
+    category: 'data-flow',
+    component: DataStructureView,
+    defaultSize: { width: 600, height: 520 },
+    minSize: { width: 380, height: 300 },
+    allowMultiple: true,
+    supports: (context, scope) => ({
+      available: scope.kind === 'data-structure'
+        && Boolean(context.execution.current?.variables.some((item) => item.id === scope.rootVariableId)),
+      reason: scope.kind === 'data-structure' ? '当前 Run 中没有这个根变量。' : '数据结构视图需要根变量。',
+      priority: 100,
+    }),
   },
   {
     id: 'call-graph',

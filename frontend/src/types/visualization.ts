@@ -23,6 +23,7 @@ export type VisualizationScope =
   | { kind: 'function'; functionId: string }
   | { kind: 'module'; moduleId: string; sourceNodeIds: string[] }
   | { kind: 'variable'; variableId: string }
+  | { kind: 'data-structure'; rootVariableId: string }
   | { kind: 'memory-object'; memoryObjectId: string }
 
 export interface TeachingStep {
@@ -40,6 +41,7 @@ export interface VisualizationSelection {
   functionId?: string
   variableId?: string
   memoryObjectId?: string
+  structureRootVariableId?: string
   moduleId?: string
 }
 
@@ -79,6 +81,8 @@ export interface VisualizationActions {
   selectFunction(functionId: string): void
   selectVariable(variableId: string): void
   selectMemoryObject(memoryObjectId: string): void
+  openDataStructure(rootVariableId: string): void
+  focusMemoryObject(memoryObjectId: string): void
   openVisualization(moduleId: string, scope?: VisualizationScope): void
   closeVisualization(instanceId: string): void
 }

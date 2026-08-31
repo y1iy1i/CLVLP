@@ -1,0 +1,26 @@
+.data-structure-view { height: 100%; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; color: #aab6c2; background: #10161c; }
+.data-structure-view > header { padding: 8px; border-bottom: 1px solid #2f3944; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.data-structure-view > header > div { display: flex; align-items: center; gap: 7px; }
+.data-structure-view > header strong { color: #d3dbe3; font: 600 11px var(--mono); }
+.data-structure-view > header span,.data-structure-view > header i { color: #78c7aa; font: normal 8px var(--mono); }
+.data-structure-view nav button { padding: 5px 7px; border: 1px solid #35414d; color: #8996a4; background: #111820; }
+.data-structure-view nav button.active { border-color: #45b68e; color: #66d6ad; }
+.data-structure-content { min-height: 0; overflow: auto; }
+.data-structure-content.mode-split { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.data-structure-content.mode-split > section + section { border-left: 1px solid #33404c; }
+.structure-sequence,.structure-matrix { padding: 15px; display: grid; gap: 5px; }
+.structure-sequence { grid-template-columns: repeat(auto-fit,minmax(55px,1fr)); }
+.structure-matrix { grid-template-columns: repeat(auto-fit,minmax(72px,1fr)); }
+.structure-sequence button,.structure-matrix button,.structure-record button,.structure-topology > button { padding: 8px; border: 1px solid #3a5062; color: #c5cfda; background: #14202a; }
+.structure-sequence small,.structure-matrix small { display: block; color: #6c7c8d; }
+.structure-record { padding: 10px; display: grid; gap: 5px; }
+.structure-record > button { display: grid; grid-template-columns: 1fr 1fr auto 1fr; gap: 7px; text-align: left; }
+.structure-topology { padding: 14px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 12px; }
+.structure-topology > button { min-width: 110px; display: grid; gap: 3px; border-radius: 8px; }
+.structure-topology.shape-tree > button { border-radius: 50%; }
+.structure-topology > button.is-freed { border-color: #a84f4f; background: #281719; }
+.structure-edges { width: 100%; display: grid; gap: 4px; color: #7790a5; font: 8px var(--mono); }
+.structure-edges span.status-dangling { color: #dd756d; }
+.data-structure-view > footer { padding: 6px; border-top: 1px solid #2d3741; display: flex; flex-wrap: wrap; gap: 5px; }
+.data-structure-view > footer span { padding: 3px 5px; border-radius: 8px; color: #7d8b98; background: #19212a; font-size: 7px; }
+.data-structure-empty { padding: 20px; color: #74808d; }

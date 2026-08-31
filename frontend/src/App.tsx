@@ -358,6 +358,8 @@ function App() {
             onSourceSelect={selectStructureNode}
             onVariableSelect={selectVariable}
             onMemoryObjectClear={() => setSelectedMemoryObjectId(undefined)}
+            onMemoryObjectSelect={setSelectedMemoryObjectId}
+            onOpenMemoryGraph={() => visualizationWorkspaceRef.current?.openVisualization('memory-graph')}
           />
           <VisualizationWorkspace
             ref={visualizationWorkspaceRef}

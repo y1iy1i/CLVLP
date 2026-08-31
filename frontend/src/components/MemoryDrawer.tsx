@@ -1,15 +1,19 @@
 import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { parseArrayElementMemoryId, resolveArrayElement } from '../analysis/arrayAccess'
 import { currentComparison } from '../analysis/executionCursor'
+import { buildMemoryMapModel } from '../analysis/memoryMap'
 import type { ArrayAccessFact } from '../types/executionCursor'
 import type { TraceVariable } from '../types/trace'
 import type { VisualizationContext } from '../types/visualization'
+import { MemoryLaneView } from '../visualizations/memory/MemoryLaneView'
 
 interface MemoryDrawerProps {
   context: VisualizationContext | null
   onSourceSelect: (sourceNodeId: string) => void
   onVariableSelect: (variableId: string) => void
   onMemoryObjectClear: () => void
+  onMemoryObjectSelect: (memoryObjectId: string) => void
+  onOpenMemoryGraph: () => void
 }
 
 const OPEN_KEY = 'clvlp:memory-drawer:open:v1'
@@ -23,6 +27,8 @@ export function MemoryDrawer({
   onSourceSelect,
   onVariableSelect,
   onMemoryObjectClear,
+  onMemoryObjectSelect,
+  onOpenMemoryGraph,
 }: MemoryDrawerProps) {
   const cursor = context?.execution.current ?? null
   const structure = context?.static.structure ?? null
@@ -39,6 +45,7 @@ export function MemoryDrawer({
   const visibleOpen = open || Boolean(context?.selection.memoryObjectId)
   const waitingForInitialization = cursor?.traceStep.event.type === 'function_enter' &&
     cursor.traceStep.event.data.initial === true
+  const memoryMap = useMemo(() => context ? buildMemoryMapModel(context) : null, [context])
   const changedIds = useMemo(
     () => new Set(cursor?.changes.map((change) => change.variableId) ?? []),
     [cursor],
@@ -127,6 +134,11 @@ export function MemoryDrawer({
             <div className="memory-empty">运行 Trace 后，这里会持续显示当前栈帧、变量和内存对象。</div>
           ) : (
             <>
+              {memoryMap && <section className="memory-drawer-map">
+                <div className="memory-drawer-section-title"><h3>已采集内存占用</h3><button type="button" onClick={onOpenMemoryGraph}>打开完整内存图</button></div>
+                <MemoryLaneView model={memoryMap} compact onSelect={(id) => { onMemoryObjectSelect(id); onOpenMemoryGraph() }} />
+                <small>每个区域独立成尺；“//”表示中间地址未观察，不代表空闲。</small>
+              </section>}
               <section>
                 <h3>调用栈</h3>
                 <div className="memory-stack">

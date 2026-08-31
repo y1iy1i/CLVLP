@@ -123,6 +123,7 @@ export const VisualizationWorkspace = forwardRef<
       ?? (resolvedScope.kind === 'function' ? resolvedScope.functionId : undefined)
       ?? (resolvedScope.kind === 'module' ? resolvedScope.moduleId : undefined)
       ?? (resolvedScope.kind === 'variable' ? resolvedScope.variableId : undefined)
+      ?? (resolvedScope.kind === 'data-structure' ? resolvedScope.rootVariableId : undefined)
       ?? (resolvedScope.kind === 'memory-object' ? resolvedScope.memoryObjectId : undefined)
     const id = definition.allowMultiple && instanceKey
       ? `${moduleId}:${instanceKey}`
@@ -141,7 +142,11 @@ export const VisualizationWorkspace = forwardRef<
       moduleId,
       instanceKey,
       scope: resolvedScope,
-      title: functionNode ? `${functionNode.name ?? '函数'} 流程` : definition.title,
+      title: functionNode
+        ? `${functionNode.name ?? '函数'} 流程`
+        : resolvedScope.kind === 'data-structure'
+          ? `${context.execution.current?.variables.find((item) => item.id === resolvedScope.rootVariableId)?.name ?? '变量'} 结构`
+          : definition.title,
       x: Math.min(18 + offset, Math.max(0, desktopSize.width - width)),
       y: Math.min(48 + offset, Math.max(0, desktopSize.height - height)),
       width,
@@ -189,6 +194,16 @@ export const VisualizationWorkspace = forwardRef<
   }, [commitWindows, structure])
 
   useEffect(() => {
+    if (!context?.execution.current) return
+    const variableIds = new Set(context.execution.current.variables.map((variable) => variable.id))
+    // The workspace persists external window state; remove instances whose runtime root disappeared.
+    // oxlint-disable-next-line react/set-state-in-effect
+    commitWindows((current) => current.filter((window) =>
+      window.moduleId !== 'data-structure' || Boolean(window.instanceKey && variableIds.has(window.instanceKey)),
+    ))
+  }, [commitWindows, context?.execution])
+
+  useEffect(() => {
     const functionId = context?.execution.current?.functionId
     if (
       context?.presentation.followExecution
@@ -216,6 +231,11 @@ export const VisualizationWorkspace = forwardRef<
     selectFunction: (functionId) => openWindow('function-flow', { kind: 'function', functionId }),
     selectVariable: onVariableSelect,
     selectMemoryObject: onMemoryObjectSelect,
+    openDataStructure: (rootVariableId) => openWindow('data-structure', { kind: 'data-structure', rootVariableId }),
+    focusMemoryObject: (memoryObjectId) => {
+      onMemoryObjectSelect(memoryObjectId)
+      openWindow('memory-graph')
+    },
     openVisualization: openWindow,
     closeVisualization: (instanceId) =>
       commitWindows((current) => current.filter((item) => item.id !== instanceId)),
@@ -225,6 +245,13 @@ export const VisualizationWorkspace = forwardRef<
     <div className="visualization-overlay" ref={desktopRef} aria-label="通用可视化工作区">
       <div className="visualization-launcher">
         <button type="button" onClick={() => openWindow('variable-inspector')}>变量</button>
+        <button type="button" onClick={() => openWindow('memory-graph')}>内存图</button>
+        {context.selection.variableId && (
+          <button type="button" onClick={() => openWindow('data-structure', {
+            kind: 'data-structure',
+            rootVariableId: context.selection.variableId!,
+          })}>当前变量结构</button>
+        )}
         <button type="button" onClick={() => openWindow('call-graph')}>函数总图</button>
         {context.execution.current?.functionId && (
           <button type="button" onClick={() => openWindow(
@@ -260,7 +287,7 @@ export const VisualizationWorkspace = forwardRef<
             }}
             position={{ x: window.maximized ? 4 : window.x, y: window.maximized ? 4 : window.y }}
             style={{ zIndex: window.z, pointerEvents: 'auto' }}
-            onMouseDown={() => setTimeout(() => focusWindow(window.id), 0)}
+            onMouseDown={() => focusWindow(window.id)}
             onDragStop={(_, data) => commitWindows((current) => current.map((item) =>
               item.id === window.id ? { ...item, x: data.x, y: data.y } : item,
             ))}

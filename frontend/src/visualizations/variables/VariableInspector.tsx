@@ -144,6 +144,8 @@ function VariableCard({
   onTargetSelect,
   accesses,
   selectedMemoryObjectId,
+  onOpenStructure,
+  onOpenMemory,
 }: {
   item: VariableInspectorItem
   selected: boolean
@@ -153,6 +155,8 @@ function VariableCard({
   onTargetSelect: (memoryObjectId: string) => void
   accesses: ArrayAccessFact[]
   selectedMemoryObjectId?: string
+  onOpenStructure: () => void
+  onOpenMemory: () => void
 }) {
   const { variable, activity } = item
   const pointer = variable.pointer
@@ -178,10 +182,16 @@ function VariableCard({
       {variable.available === false && <div className="variable-warning">{variable.storage?.unavailableReason ?? '当前值不可读取'}</div>}
       {pointer && (
         <div className={`variable-pointer status-${pointer.status}`}>
-          <span>{pointer.addressValue ?? '未知地址'} → {pointer.status}</span>
+          <span><b>&amp;{variable.name}</b> {variable.storage?.address ?? '未知'} · <b>{variable.name}</b> {pointer.addressValue ?? '未知'} · <b>*{variable.name}</b> {pointer.status}</span>
           {pointer.targetObjectId && (
             <button type="button" onClick={() => onTargetSelect(pointer.targetObjectId!)}>查看目标</button>
           )}
+        </div>
+      )}
+      {(Array.isArray(variable.value) || variable.fields?.length || pointer) && (
+        <div className="variable-view-actions">
+          <button type="button" onClick={onOpenStructure}>查看结构</button>
+          <button type="button" onClick={onOpenMemory}>查看内存</button>
         </div>
       )}
       <ComplexValue
@@ -240,6 +250,14 @@ export function VariableInspector({ context, actions }: VisualizationModuleProps
       onTargetSelect={actions.selectMemoryObject}
       accesses={accessesByVariable.get(item.variable.id) ?? []}
       selectedMemoryObjectId={context.selection.memoryObjectId}
+      onOpenStructure={() => actions.openVisualization('data-structure', {
+        kind: 'data-structure',
+        rootVariableId: item.variable.id,
+      })}
+      onOpenMemory={() => {
+        actions.selectMemoryObject(item.variable.id)
+        actions.openVisualization('memory-graph')
+      }}
     />
   )
 
