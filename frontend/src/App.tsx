@@ -14,7 +14,7 @@ import {
   VisualizationWorkspace,
   type VisualizationWorkspaceHandle,
 } from './components/VisualizationWorkspace'
-import { starterCode } from './mocks/mockTrace'
+import { codeExamples, starterCode, type CodeExample } from './mocks/codeExamples'
 import { executeCode } from './services/executeCode'
 import { runCode } from './services/runCode'
 import type { ExecutionResult } from './types/execution'
@@ -29,6 +29,7 @@ type RightView = 'runtime' | 'structure'
 function App() {
   const visualizationWorkspaceRef = useRef<VisualizationWorkspaceHandle | null>(null)
   const [code, setCode] = useState(starterCode)
+  const [activeExampleId, setActiveExampleId] = useState(codeExamples[0].id)
   const [runMode, setRunMode] = useState<RunMode>('trace')
   const [executionTrace, setExecutionTrace] = useState<ExecutionTrace | null>(null)
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
@@ -152,6 +153,25 @@ function App() {
     setCurrentStepIndex(null)
     setRunError(null)
     setIsPlaying(false)
+  }
+
+  const loadExample = (example: CodeExample) => {
+    setCode(example.code)
+    setActiveExampleId(example.id)
+    setExecutionTrace(null)
+    setExecutionResult(null)
+    setCurrentStepIndex(null)
+    setRunError(null)
+    setIsPlaying(false)
+    setSelectedSourceNodeId(undefined)
+    setSelectedVariableId(undefined)
+    setSelectedMemoryObjectId(undefined)
+    setSelectedStructureRange(null)
+  }
+
+  const editCode = (nextCode: string) => {
+    setCode(nextCode)
+    setActiveExampleId('custom')
   }
 
   const runCurrentMode = async () => {
@@ -291,7 +311,12 @@ function App() {
       </header>
 
       <div className="workspace">
-        <FileExplorer fileName="main.c" />
+        <FileExplorer
+          fileName="main.c"
+          examples={codeExamples}
+          activeExampleId={activeExampleId}
+          onExampleSelect={loadExample}
+        />
         <section className="editor-panel" aria-label="代码编辑器">
           <div className="editor-tabbar">
             <div className="editor-tab active">
@@ -306,7 +331,7 @@ function App() {
               currentLine={runMode === 'trace' ? currentStep?.location.line : undefined}
               executedLine={runMode === 'trace' ? currentStep?.executedLocation?.line : undefined}
               selectedRange={selectedStructureRange}
-              onChange={setCode}
+              onChange={editCode}
             />
           </div>
         </section>
