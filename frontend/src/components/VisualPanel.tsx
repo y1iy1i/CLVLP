@@ -137,9 +137,6 @@ export function VisualPanel({ trace, context, error }: VisualPanelProps) {
   }
 
   const changes = (step.event.data.changes ?? []) as ChangeRecord[]
-  const isWaitingForInitialization =
-    step.event.type === 'function_enter' && step.event.data.initial === true
-
   return (
     <aside className="visual-panel" aria-label="执行可视化">
       <div className="panel-heading visual-heading">
@@ -214,32 +211,6 @@ export function VisualPanel({ trace, context, error }: VisualPanelProps) {
               </li>
             ))}
           </ul>
-        )}
-      </section>
-
-      <section className="visual-section">
-        <div className="section-label">变量状态</div>
-        {isWaitingForInitialization ? (
-          <div className="section-empty">
-            函数刚刚进入，局部变量尚未初始化
-          </div>
-        ) : step.state.variables.length > 0 ? (
-          <div className="variable-table">
-            <div className="variable-row variable-header">
-              <span>名称</span>
-              <span>类型</span>
-              <span>值</span>
-            </div>
-            {step.state.variables.map((variable) => (
-              <div className="variable-row" key={variable.id}>
-                <span className="variable-name">{variable.name}</span>
-                <span className="variable-type">{variable.type}</span>
-                <span className="variable-value">{displayValue(variable.value)}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="section-empty">还没有局部变量</div>
         )}
       </section>
 

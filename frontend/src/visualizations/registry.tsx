@@ -7,6 +7,7 @@ import type {
   VisualizationSupport,
 } from '../types/visualization'
 import { CallGraphModule, FunctionFlowModule } from './VisualizationModules'
+import { VariableInspector } from './variables/VariableInspector'
 
 export type { VisualizationContext } from '../types/visualization'
 
@@ -32,6 +33,16 @@ export interface VisualizationModuleDefinition {
 }
 
 export const visualizationRegistry: VisualizationModuleDefinition[] = [
+  {
+    id: 'variable-inspector',
+    title: '变量观察器',
+    category: 'runtime-state',
+    component: VariableInspector,
+    defaultSize: { width: 460, height: 480 },
+    minSize: { width: 340, height: 260 },
+    allowMultiple: false,
+    supports: () => ({ available: true, priority: 110 }),
+  },
   {
     id: 'call-graph',
     title: '函数总关系图',

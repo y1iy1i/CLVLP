@@ -60,6 +60,12 @@ node, variable or memory object updates shared selection state so Monaco,
 memory, runtime and algorithm views can respond together. Components never
 reach into another component directly.
 
+The floating workspace is shared by runtime and structure views. Its registry
+currently includes call graphs, function flow graphs and a singleton variable
+inspector. The variable inspector groups values by stack frame and derives
+read/write/declaration state and a 20-step history exclusively from
+`ExecutionCursor`; it never parses raw event payloads.
+
 ## Teaching facts
 
 `ExecutionCursor.facts` is the deterministic bridge between raw state and
