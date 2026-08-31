@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildExecutionCursor } from './analysis/executionCursor'
 import { buildAllFlowGraphs } from './analysis/flowGraphBuilder'
 import { buildVisualizationContext } from './analysis/visualizationContext'
@@ -10,6 +10,10 @@ import { FileExplorer } from './components/FileExplorer'
 import { VisualPanel } from './components/VisualPanel'
 import { StructureWorkspace } from './components/StructureWorkspace'
 import { MemoryDrawer } from './components/MemoryDrawer'
+import {
+  VisualizationWorkspace,
+  type VisualizationWorkspaceHandle,
+} from './components/VisualizationWorkspace'
 import { starterCode } from './mocks/mockTrace'
 import { executeCode } from './services/executeCode'
 import { runCode } from './services/runCode'
@@ -23,6 +27,7 @@ type RunMode = 'trace' | 'execute'
 type RightView = 'runtime' | 'structure'
 
 function App() {
+  const visualizationWorkspaceRef = useRef<VisualizationWorkspaceHandle | null>(null)
   const [code, setCode] = useState(starterCode)
   const [runMode, setRunMode] = useState<RunMode>('trace')
   const [executionTrace, setExecutionTrace] = useState<ExecutionTrace | null>(null)
@@ -95,19 +100,33 @@ function App() {
     teachingMode,
     visualizationGraphs,
   ])
-  const traceMatch = cursor
-    ? {
-        currentNodeId: cursor.currentNodeId ?? null,
-        ancestorIds: cursor.ancestorNodeIds,
-        functionId: cursor.functionId ?? null,
-      }
-    : { currentNodeId: null, ancestorIds: [], functionId: null }
-
   const selectStructureNode = useCallback((sourceNodeId: string) => {
     setSelectedSourceNodeId(sourceNodeId)
     const node = structure?.nodes.find((candidate) => candidate.id === sourceNodeId)
     if (node) setSelectedStructureRange(node.range)
   }, [structure])
+
+  const selectVariable = useCallback((variableId: string) => {
+    setSelectedVariableId(variableId)
+    const variable = cursor?.variables.find((candidate) => candidate.id === variableId)
+    if (!variable || !structure) return
+    const candidates = structure.nodes.filter(
+      (node) => (node.kind === 'variable' || node.kind === 'parameter') && node.name === variable.name,
+    )
+    const scoped = candidates.find((node) => {
+      let parent = node.parentId
+        ? structure.nodes.find((candidate) => candidate.id === node.parentId)
+        : undefined
+      while (parent && parent.kind !== 'function') {
+        parent = parent.parentId
+          ? structure.nodes.find((candidate) => candidate.id === parent?.parentId)
+          : undefined
+      }
+      return parent?.name === variable.scope
+    })
+    const selected = scoped ?? candidates[0]
+    if (selected) selectStructureNode(selected.id)
+  }, [cursor, selectStructureNode, structure])
 
   useEffect(() => {
     if (!isPlaying) return
@@ -313,13 +332,12 @@ function App() {
                 structure={structure}
                 context={visualizationContext}
                 phase={structurePhase}
-                followFunctionId={traceMatch.functionId}
                 followExecution={followExecution}
                 onFollowExecutionChange={setFollowExecution}
                 onSourceSelect={selectStructureNode}
-                onSeekStep={setCurrentStepIndex}
-                onVariableSelect={setSelectedVariableId}
-                onMemoryObjectSelect={setSelectedMemoryObjectId}
+                onOpenVisualization={(moduleId, scope) =>
+                  visualizationWorkspaceRef.current?.openVisualization(moduleId, scope)
+                }
               />
             ) : runMode === 'trace' ? (
               <VisualPanel
@@ -338,7 +356,16 @@ function App() {
           <MemoryDrawer
             context={runMode === 'trace' ? visualizationContext : null}
             onSourceSelect={selectStructureNode}
-            onVariableSelect={setSelectedVariableId}
+            onVariableSelect={selectVariable}
+          />
+          <VisualizationWorkspace
+            ref={visualizationWorkspaceRef}
+            context={visualizationContext}
+            structure={structure}
+            onSourceSelect={selectStructureNode}
+            onSeekStep={setCurrentStepIndex}
+            onVariableSelect={selectVariable}
+            onMemoryObjectSelect={setSelectedMemoryObjectId}
           />
           </div>
         </aside>
