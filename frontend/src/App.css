@@ -208,9 +208,10 @@ button {
 }
 
 .workspace {
+  position: relative;
   min-height: 0;
   display: grid;
-  grid-template-columns: 220px minmax(420px, 1fr) clamp(480px, 42vw, 680px);
+  overflow: hidden;
 }
 
 .explorer,
@@ -239,6 +240,48 @@ button {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.panel-heading > span {
+  min-width: 0;
+}
+
+.explorer-toggle {
+  width: 25px;
+  height: 25px;
+  margin-left: auto;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #778391;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.explorer-toggle:hover,
+.explorer-toggle:focus-visible {
+  border-color: #34404b;
+  color: #68dfb6;
+  background: #1c242b;
+  outline: none;
+}
+
+.explorer.is-collapsed {
+  align-items: center;
+  overflow: hidden;
+}
+
+.explorer.is-collapsed .explorer-toggle {
+  flex: 0 0 auto;
+  margin: 7px 0 0;
+}
+
+.explorer-collapsed-label {
+  margin-top: 12px;
+  color: #6f7b89;
+  font-size: 9px;
+  letter-spacing: .2em;
+  writing-mode: vertical-rl;
 }
 
 .project-label {
@@ -367,6 +410,38 @@ button {
   display: grid;
   grid-template-rows: 39px minmax(0, 1fr);
   background: #1e1e1e;
+}
+
+.workspace-resize-handle {
+  position: relative;
+  z-index: 2;
+  min-width: 6px;
+  background: #151a20;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.workspace-resize-handle::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 2px;
+  content: '';
+  background: #2d353f;
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+
+.workspace-resize-handle:hover::after,
+body.is-resizing-layout .workspace-resize-handle::after {
+  background: #4be0ad;
+  box-shadow: 0 0 8px rgb(75 224 173 / 45%);
+}
+
+body.is-resizing-layout,
+body.is-resizing-layout * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 .editor-tabbar {

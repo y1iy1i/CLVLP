@@ -26,6 +26,20 @@ const kindName: Record<ReturnType<typeof layoutKind>, string> = {
   'adjacency-edge': '邻接表边节点', 'adjacency-list': '邻接表入口',
   pointer: '指针变量', scalar: '普通变量',
 }
+const detailedRangeWidth = (range: MemoryRange) => {
+  if (range.fields.length === 0) return 250
+  const ordered = [...range.fields].sort((a, b) => (a.offset ?? 0) - (b.offset ?? 0))
+  let paddingCells = 0
+  let cursor = 0
+  ordered.forEach((field, index) => {
+    const offset = field.offset ?? cursor
+    if (offset > cursor) paddingCells += 1
+    const nextOffset = ordered[index + 1]?.offset
+    cursor = offset + (field.size ?? (nextOffset !== undefined ? nextOffset - offset : 0))
+  })
+  if (range.size !== undefined && cursor < range.size) paddingCells += 1
+  return Math.max(320, range.fields.length * 135 + paddingCells * 96 + 28)
+}
 
 function ArrayLayout({ range, targetLabels, onSelect }: { range: MemoryRange; targetLabels: Map<string, string>; onSelect?: (id: string) => void }) {
   const rows = Array.isArray(range.value) && range.value.some(Array.isArray) ? range.value as unknown[][] : [range.value as unknown[]]
@@ -92,7 +106,7 @@ export function MemoryLaneView({ model, compact = false, filterIds, onSelect, on
     const knownBytes = ranges.reduce((sum, range) => sum + (range.size ?? 0), 0)
     const discontinuities = new Map(lane.discontinuities.map((gap) => [gap.afterRangeId, gap]))
     return <section className="memory-lane" key={region}><header><strong>{regionNames[region]}</strong><span>{knownBytes} B 已采集 · 按真实地址从低到高</span></header><div className="memory-lane-track">
-      {ranges.length === 0 ? <em>暂无已采集对象</em> : ranges.map((range) => <div className="memory-range-wrap" key={range.id}>
+      {ranges.length === 0 ? <em>暂无已采集对象</em> : ranges.map((range) => <div className="memory-range-wrap" key={range.id} style={compact ? undefined : { minWidth: detailedRangeWidth(range) }}>
         {compact ? <button type="button" className={`memory-range compact-range ${range.activeAccess ? `is-${range.activeAccess}` : ''}`} onClick={() => onSelect?.(range.memoryObjectId)}><strong>{range.label}</strong></button> : <DetailedRange range={range} targetLabels={targetLabels} onSelect={onSelect} onOpenStructure={onOpenStructure} />}
         {discontinuities.has(range.id) && <span className="memory-gap">// +{discontinuities.get(range.id)?.gapBytes ?? '?'} B<br />未观察地址</span>}
       </div>)}

@@ -4,6 +4,8 @@ interface FileExplorerProps {
   fileName: string
   examples: CodeExample[]
   activeExampleId: string
+  collapsed: boolean
+  onCollapsedChange: (collapsed: boolean) => void
   onExampleSelect: (example: CodeExample) => void
 }
 
@@ -11,12 +13,37 @@ export function FileExplorer({
   fileName,
   examples,
   activeExampleId,
+  collapsed,
+  onCollapsedChange,
   onExampleSelect,
 }: FileExplorerProps) {
   const categories = [...new Set(examples.map((example) => example.category))]
+  if (collapsed) {
+    return (
+      <aside className="explorer is-collapsed" aria-label="文件目录（已收起）">
+        <button
+          className="explorer-toggle is-expand"
+          type="button"
+          aria-label="展开资源管理器"
+          title="展开资源管理器"
+          onClick={() => onCollapsedChange(false)}
+        >›</button>
+        <span className="explorer-collapsed-label">文件</span>
+      </aside>
+    )
+  }
   return (
     <aside className="explorer" aria-label="文件目录">
-      <div className="panel-heading">资源管理器</div>
+      <div className="panel-heading">
+        <span>资源管理器</span>
+        <button
+          className="explorer-toggle"
+          type="button"
+          aria-label="收起资源管理器"
+          title="收起资源管理器"
+          onClick={() => onCollapsedChange(true)}
+        >‹</button>
+      </div>
       <div className="project-label">
         <span className="chevron">⌄</span>
         <span>CLVLP</span>

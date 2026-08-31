@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { buildExecutionCursor } from './analysis/executionCursor'
 import { buildAllFlowGraphs } from './analysis/flowGraphBuilder'
 import { buildVisualizationContext } from './analysis/visualizationContext'
@@ -44,6 +44,15 @@ function App() {
   const [selectedSourceNodeId, setSelectedSourceNodeId] = useState<string>()
   const [selectedVariableId, setSelectedVariableId] = useState<string>()
   const [selectedMemoryObjectId, setSelectedMemoryObjectId] = useState<string>()
+  const [explorerCollapsed, setExplorerCollapsed] = useState(
+    () => localStorage.getItem('clvlp:explorer-collapsed') === 'true',
+  )
+  const [rightDockWidth, setRightDockWidth] = useState(() => {
+    const saved = Number(localStorage.getItem('clvlp:right-dock-width'))
+    return Number.isFinite(saved) && saved >= 320
+      ? saved
+      : Math.min(680, Math.max(480, window.innerWidth * 0.42))
+  })
   const { structure, phase: structurePhase } = useCodeStructure(code)
   const programMap = useProgramMap(code, structure)
 
@@ -128,6 +137,35 @@ function App() {
     const selected = scoped ?? candidates[0]
     if (selected) selectStructureNode(selected.id)
   }, [cursor, selectStructureNode, structure])
+
+  const setExplorerVisibility = useCallback((collapsed: boolean) => {
+    setExplorerCollapsed(collapsed)
+    localStorage.setItem('clvlp:explorer-collapsed', String(collapsed))
+  }, [])
+
+  const beginRightDockResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = rightDockWidth
+    const explorerWidth = explorerCollapsed ? 36 : 220
+    const move = (pointerEvent: PointerEvent) => {
+      const available = Math.max(320, window.innerWidth - explorerWidth - 280 - 6)
+      const next = Math.min(available, Math.max(320, startWidth + startX - pointerEvent.clientX))
+      setRightDockWidth(next)
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      document.body.classList.remove('is-resizing-layout')
+      setRightDockWidth((current) => {
+        localStorage.setItem('clvlp:right-dock-width', String(Math.round(current)))
+        return current
+      })
+    }
+    document.body.classList.add('is-resizing-layout')
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop, { once: true })
+  }, [explorerCollapsed, rightDockWidth])
 
   useEffect(() => {
     if (!isPlaying) return
@@ -310,11 +348,18 @@ function App() {
         </div>
       </header>
 
-      <div className="workspace">
+      <div
+        className="workspace"
+        style={{
+          gridTemplateColumns: `${explorerCollapsed ? 36 : 220}px minmax(280px, 1fr) 6px ${rightDockWidth}px`,
+        }}
+      >
         <FileExplorer
           fileName="main.c"
           examples={codeExamples}
           activeExampleId={activeExampleId}
+          collapsed={explorerCollapsed}
+          onCollapsedChange={setExplorerVisibility}
           onExampleSelect={loadExample}
         />
         <section className="editor-panel" aria-label="代码编辑器">
@@ -335,6 +380,13 @@ function App() {
             />
           </div>
         </section>
+        <div
+          className="workspace-resize-handle"
+          role="separator"
+          aria-label="调整编辑器与可视化区域宽度"
+          aria-orientation="vertical"
+          onPointerDown={beginRightDockResize}
+        />
         <aside className="right-dock">
           <header className="right-dock-tabs">
             <div role="group" aria-label="右侧可视化模式">
@@ -386,17 +438,17 @@ function App() {
             onMemoryObjectSelect={setSelectedMemoryObjectId}
             onOpenMemoryGraph={() => visualizationWorkspaceRef.current?.openVisualization('memory-graph')}
           />
-          <VisualizationWorkspace
-            ref={visualizationWorkspaceRef}
-            context={visualizationContext}
-            structure={structure}
-            onSourceSelect={selectStructureNode}
-            onSeekStep={setCurrentStepIndex}
-            onVariableSelect={selectVariable}
-            onMemoryObjectSelect={setSelectedMemoryObjectId}
-          />
           </div>
         </aside>
+        <VisualizationWorkspace
+          ref={visualizationWorkspaceRef}
+          context={visualizationContext}
+          structure={structure}
+          onSourceSelect={selectStructureNode}
+          onSeekStep={setCurrentStepIndex}
+          onVariableSelect={selectVariable}
+          onMemoryObjectSelect={setSelectedMemoryObjectId}
+        />
       </div>
 
       <footer className="statusbar">
