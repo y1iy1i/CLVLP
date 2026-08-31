@@ -1,5 +1,7 @@
 import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { parseArrayElementMemoryId, resolveArrayElement } from '../analysis/arrayAccess'
 import { currentComparison } from '../analysis/executionCursor'
+import type { ArrayAccessFact } from '../types/executionCursor'
 import type { TraceVariable } from '../types/trace'
 import type { VisualizationContext } from '../types/visualization'
 
@@ -7,6 +9,7 @@ interface MemoryDrawerProps {
   context: VisualizationContext | null
   onSourceSelect: (sourceNodeId: string) => void
   onVariableSelect: (variableId: string) => void
+  onMemoryObjectClear: () => void
 }
 
 const OPEN_KEY = 'clvlp:memory-drawer:open:v1'
@@ -19,6 +22,7 @@ export function MemoryDrawer({
   context,
   onSourceSelect,
   onVariableSelect,
+  onMemoryObjectClear,
 }: MemoryDrawerProps) {
   const cursor = context?.execution.current ?? null
   const structure = context?.static.structure ?? null
@@ -28,6 +32,11 @@ export function MemoryDrawer({
     return Number.isFinite(stored) && stored >= 250 ? stored : 310
   })
   const comparison = currentComparison(cursor)
+  const arrayAccesses = cursor?.facts.filter(
+    (fact): fact is ArrayAccessFact => fact.kind === 'array_access',
+  ) ?? []
+  const selectedElement = parseArrayElementMemoryId(context?.selection.memoryObjectId)
+  const visibleOpen = open || Boolean(context?.selection.memoryObjectId)
   const waitingForInitialization = cursor?.traceStep.event.type === 'function_enter' &&
     cursor.traceStep.event.data.initial === true
   const changedIds = useMemo(
@@ -43,11 +52,27 @@ export function MemoryDrawer({
       operand.variableId === variable.id ? operand.indices ?? [] : [],
     ) ?? [],
   )
+  const readIndices = (variable: TraceVariable) => new Set(
+    arrayAccesses.flatMap((fact) =>
+      fact.variableId === variable.id && fact.access === 'read' && fact.indices.length === 1
+        ? [fact.indices[0]]
+        : [],
+    ),
+  )
+  const writtenIndices = (variable: TraceVariable) => new Set(
+    arrayAccesses.flatMap((fact) =>
+      fact.variableId === variable.id && fact.access === 'write' && fact.indices.length === 1
+        ? [fact.indices[0]]
+        : [],
+    ),
+  )
 
   const toggle = () => {
+    if (visibleOpen && context?.selection.memoryObjectId) onMemoryObjectClear()
     setOpen((current) => {
-      localStorage.setItem(OPEN_KEY, String(!current))
-      return !current
+      const next = visibleOpen ? false : !current
+      localStorage.setItem(OPEN_KEY, String(next))
+      return next
     })
   }
 
@@ -87,16 +112,16 @@ export function MemoryDrawer({
 
   return (
     <aside
-      className={`memory-drawer${open ? ' is-open' : ''}`}
-      style={{ width: open ? `${width}px` : '36px' }}
+      className={`memory-drawer${visibleOpen ? ' is-open' : ''}`}
+      style={{ width: visibleOpen ? `${width}px` : '36px' }}
       aria-label="常驻内存视图"
     >
-      {open && <div className="memory-resize-handle" onPointerDown={startResize} />}
+      {visibleOpen && <div className="memory-resize-handle" onPointerDown={startResize} />}
       <button className="memory-drawer-toggle" type="button" onClick={toggle}>
-        <span>{open ? '›' : '‹'}</span>
+        <span>{visibleOpen ? '›' : '‹'}</span>
         <strong>内存</strong>
       </button>
-      {open && (
+      {visibleOpen && (
         <div className="memory-drawer-content">
           {!cursor ? (
             <div className="memory-empty">运行 Trace 后，这里会持续显示当前栈帧、变量和内存对象。</div>
@@ -126,6 +151,14 @@ export function MemoryDrawer({
                         ? 'is-read'
                         : ''
                     const indices = comparedIndices(variable)
+                    const reads = readIndices(variable)
+                    const writes = writtenIndices(variable)
+                    const selectedIndices = selectedElement?.variableId === variable.id
+                      ? selectedElement.indices
+                      : undefined
+                    const selectedDetails = selectedIndices
+                      ? resolveArrayElement(variable, selectedIndices)
+                      : undefined
                     const pointerTarget = variable.pointer?.targetObjectId
                       ? cursor.memory.objects.find((item) => item.id === variable.pointer?.targetObjectId)
                       : undefined
@@ -138,7 +171,14 @@ export function MemoryDrawer({
                         {Array.isArray(variable.value) ? (
                           <span className="memory-array-cells">
                             {variable.value.map((value, index) => (
-                              <i key={index} className={indices.has(index) ? 'is-compared' : ''}>
+                              <i
+                                key={index}
+                                className={[
+                                  indices.has(index) || reads.has(index) ? 'is-read' : '',
+                                  writes.has(index) ? 'is-written' : '',
+                                  selectedIndices?.length === 1 && selectedIndices[0] === index ? 'is-selected' : '',
+                                ].filter(Boolean).join(' ')}
+                              >
                                 <small>[{index}]</small>{displayValue(value)}
                               </i>
                             ))}
@@ -155,6 +195,17 @@ export function MemoryDrawer({
                                 : variable.pointer?.status === 'dangling'
                                   ? '已释放对象'
                                   : '目标未解析'}
+                          </span>
+                        )}
+                        {selectedIndices && selectedDetails && (
+                          <span className="memory-element-detail">
+                            <strong>{variable.name}{selectedIndices.map((index) => `[${index}]`).join('')} = {displayValue(selectedDetails.value)}</strong>
+                            <code>&amp;{variable.name}{selectedIndices.map((index) => `[${index}]`).join('')} = {selectedDetails.address ?? '地址未知'}</code>
+                            <small>
+                              {selectedDetails.byteOffset === undefined ? '偏移未知' : `距数组首地址 +${selectedDetails.byteOffset} bytes`}
+                              {selectedDetails.addressOrigin === 'computed' ? ' · 根据数组布局计算' : selectedDetails.addressOrigin === 'observed' ? ' · GDB 实际采集' : ''}
+                            </small>
+                            {selectedDetails.bytes && <code>原始字节：{selectedDetails.bytes}</code>}
                           </span>
                         )}
                       </button>

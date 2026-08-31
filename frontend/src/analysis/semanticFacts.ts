@@ -1,5 +1,6 @@
 import type { AnyCodeStructureNode, CodeStructure } from '../types/codeStructure'
 import type {
+  ArrayAccessFact,
   ComparisonFact,
   ComparisonOperand,
   RecursionFact,
@@ -14,6 +15,7 @@ import type {
   TraceStep,
   TraceVariable,
 } from '../types/trace'
+import { arrayElementMemoryId, resolveArrayElement } from './arrayAccess'
 import { matchTraceLocation } from './flowGraphBuilder'
 
 type FactPayload<T extends SemanticFact = SemanticFact> = T extends SemanticFact
@@ -160,6 +162,32 @@ const evaluateIntegerExpression = (
   if (tokens.join('').replace(/\s/g, '') !== expression.replace(/\s/g, '')) return undefined
   return new ArithmeticParser(tokens, numbers).parse()
 }
+
+const arrayAccessPayload = (
+  variable: TraceVariable,
+  indices: number[],
+  access: ArrayAccessFact['access'],
+  expression = `${variable.name}${indices.map((index) => `[${index}]`).join('')}`,
+): Omit<ArrayAccessFact, keyof SemanticFactMetadata> => {
+  const resolved = resolveArrayElement(variable, indices)
+  return {
+    kind: 'array_access',
+    variableId: variable.id,
+    variableName: variable.name,
+    expression,
+    indices,
+    value: resolved.value,
+    address: resolved.address,
+    byteOffset: resolved.byteOffset,
+    memoryObjectId: arrayElementMemoryId(variable.id, indices),
+    access,
+    resolved: resolved.resolved,
+    addressOrigin: resolved.addressOrigin,
+  }
+}
+
+const sameIndices = (left: readonly number[], right: readonly number[]) =>
+  left.length === right.length && left.every((index, position) => index === right[position])
 
 const resolveOperand = (
   role: ComparisonOperand['role'],
@@ -393,17 +421,14 @@ export function buildSemanticFacts(
     })
     for (const operand of [left, right]) {
       if (operand.kind === 'array_element' && operand.variableId && operand.variableName && operand.indices) {
-        add({
-          kind: 'array_access',
-          variableId: operand.variableId,
-          variableName: operand.variableName,
-          indices: operand.indices,
-          access: 'read',
-        }, {
+        const variable = variables.get(operand.variableName)
+        if (!variable) continue
+        add(arrayAccessPayload(variable, operand.indices, 'read', operand.expression), {
           origin: 'derived',
           location: step.location,
           sourceNodeId: conditionNode?.id,
           variableIds: [operand.variableId],
+          objectIds: [arrayElementMemoryId(operand.variableId, operand.indices)],
         })
       }
     }
@@ -441,17 +466,19 @@ export function buildSemanticFacts(
       variableIds: [variable.id],
     })
     for (const indices of arrayIndicesInNode(currentReadNode, variable, variables)) {
-      add({
-        kind: 'array_access',
-        variableId: variable.id,
-        variableName: variable.name,
-        indices,
-        access: 'read',
-      }, {
+      if (facts.some((fact) =>
+        fact.kind === 'array_access'
+        && fact.variableId === variable.id
+        && fact.access === 'read'
+        && sameIndices(fact.indices, indices),
+      )) continue
+      const payload = arrayAccessPayload(variable, indices, 'read')
+      add(payload, {
         origin: 'derived',
         location: step.location,
         sourceNodeId: currentReadNode?.id,
         variableIds: [variable.id],
+        objectIds: payload.memoryObjectId ? [payload.memoryObjectId] : [],
       })
     }
   }
@@ -505,17 +532,19 @@ export function buildSemanticFacts(
       variableIds: [variable.id],
     })
     for (const indices of arrayIndicesInNode(executedSource.node, variable, variables)) {
-      add({
-        kind: 'array_access',
-        variableId: variable.id,
-        variableName: variable.name,
-        indices,
-        access: 'write',
-      }, {
+      if (facts.some((fact) =>
+        fact.kind === 'array_access'
+        && fact.variableId === variable.id
+        && fact.access === 'write'
+        && sameIndices(fact.indices, indices),
+      )) continue
+      const payload = arrayAccessPayload(variable, indices, 'write')
+      add(payload, {
         origin: 'derived',
         location: executedLocation,
         sourceNodeId: executedSource.nodeId,
         variableIds: [variable.id],
+        objectIds: payload.memoryObjectId ? [payload.memoryObjectId] : [],
       })
     }
   }

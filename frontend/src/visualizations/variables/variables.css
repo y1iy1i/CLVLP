@@ -32,6 +32,18 @@
   font-size: 9px;
 }
 
+.variable-current-operation { padding: 9px 10px; border-bottom: 1px solid #29323d; background: #131b22; }
+.variable-current-operation > span { color: #728192; font-size: 8px; letter-spacing: .08em; }
+.variable-comparison-expression { margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.variable-comparison-expression code { color: #d4dce5; font: 600 10px var(--mono); }
+.variable-comparison-expression strong { color: #55dcaf; font-size: 9px; }
+.variable-operation-operands { margin-top: 7px; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 5px; }
+.variable-operation-operands button { padding: 7px 8px; border: 1px solid #3b5f80; border-radius: 5px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; color: #8ca5bc; background: #142332; text-align: left; cursor: pointer; }
+.variable-operation-operands button.is-write { border-color: #855f37; background: #2a2117; }
+.variable-operation-operands code { overflow: hidden; color: #94c7ee; font: 9px var(--mono); text-overflow: ellipsis; }
+.variable-operation-operands strong { color: #e3c47d; font: 600 10px var(--mono); }
+.variable-operation-operands small { grid-column: 1 / -1; color: #64778a; font-size: 7px; }
+
 .variable-group { border-bottom: 1px solid #27303a; }
 .variable-group.is-current { box-shadow: inset 3px 0 #49dbae; }
 .variable-group.pinned-variables { padding: 8px; background: #161d20; }
@@ -97,7 +109,10 @@
 .variable-complex-value { margin: 0 9px 7px 11px; color: #7f8c9b; font-size: 8px; }
 .variable-complex-value summary { cursor: pointer; }
 .variable-array-grid { margin-top: 6px; display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 4px; }
-.variable-array-grid > span { padding: 4px; display: grid; gap: 2px; border: 1px solid #2c3742; border-radius: 4px; background: #10151a; }
+.variable-array-grid > button { padding: 4px; border: 1px solid #2c3742; border-radius: 4px; display: grid; gap: 2px; color: inherit; background: #10151a; text-align: left; cursor: pointer; }
+.variable-array-grid > button.is-read { border-color: #4f91d0; background: #16283a; }
+.variable-array-grid > button.is-write { border-color: #e39b42; background: #2b2115; }
+.variable-array-grid > button.is-selected { outline: 1px solid #d6e5f2; outline-offset: 1px; }
 .variable-array-grid small { color: #637080; }
 .variable-array-grid code { overflow: hidden; color: #bfc9d4; font: 8px var(--mono); text-overflow: ellipsis; }
 .variable-complex-value > em { display: block; margin-top: 5px; color: #746c58; }

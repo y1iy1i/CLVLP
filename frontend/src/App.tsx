@@ -357,6 +357,7 @@ function App() {
             context={runMode === 'trace' ? visualizationContext : null}
             onSourceSelect={selectStructureNode}
             onVariableSelect={selectVariable}
+            onMemoryObjectClear={() => setSelectedMemoryObjectId(undefined)}
           />
           <VisualizationWorkspace
             ref={visualizationWorkspaceRef}

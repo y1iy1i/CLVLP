@@ -48,8 +48,15 @@ export interface ArrayAccessFact extends SemanticFactMetadata {
   kind: 'array_access'
   variableId: string
   variableName: string
+  expression: string
   indices: number[]
+  value?: unknown
+  address?: string
+  byteOffset?: number
+  memoryObjectId?: string
   access: 'read' | 'write'
+  resolved: boolean
+  addressOrigin?: 'observed' | 'computed'
 }
 
 export interface SwapFact extends SemanticFactMetadata {

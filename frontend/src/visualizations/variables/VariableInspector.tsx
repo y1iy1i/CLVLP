@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react'
+import { currentComparison } from '../../analysis/executionCursor'
+import { arrayElementMemoryId } from '../../analysis/arrayAccess'
+import type { ArrayAccessFact } from '../../types/executionCursor'
 import type { MemoryField, TraceVariable } from '../../types/trace'
 import type { VisualizationModuleProps } from '../registry'
 import {
@@ -79,14 +82,43 @@ function FieldTree({ fields }: { fields: MemoryField[] }) {
   )
 }
 
-function ComplexValue({ variable }: { variable: TraceVariable }) {
+function ComplexValue({
+  variable,
+  accesses,
+  selectedMemoryObjectId,
+  onTargetSelect,
+}: {
+  variable: TraceVariable
+  accesses: ArrayAccessFact[]
+  selectedMemoryObjectId?: string
+  onTargetSelect: (memoryObjectId: string) => void
+}) {
   if (Array.isArray(variable.value)) {
     const visible = variable.value.slice(0, 100)
     return (
-      <details className="variable-complex-value">
+      <details className="variable-complex-value" open={accesses.length > 0 || undefined}>
         <summary>查看 {variable.value.length} 个数组元素</summary>
         <div className="variable-array-grid">
-          {visible.map((value, index) => <span key={index}><small>[{index}]</small><code>{displayValue(value)}</code></span>)}
+          {visible.map((value, index) => {
+            const memoryObjectId = arrayElementMemoryId(variable.id, [index])
+            const current = accesses.filter((fact) => fact.indices.length === 1 && fact.indices[0] === index)
+            const access = current.some((fact) => fact.access === 'write')
+              ? 'write'
+              : current.some((fact) => fact.access === 'read')
+                ? 'read'
+                : undefined
+            return (
+              <button
+                type="button"
+                key={index}
+                className={`${access ? `is-${access}` : ''}${selectedMemoryObjectId === memoryObjectId ? ' is-selected' : ''}`}
+                onClick={() => onTargetSelect(memoryObjectId)}
+                title="在内存抽屉中查看"
+              >
+                <small>[{index}]</small><code>{displayValue(value)}</code>
+              </button>
+            )
+          })}
         </div>
         {visible.length < variable.value.length && <em>仅显示前 100 项</em>}
       </details>
@@ -110,6 +142,8 @@ function VariableCard({
   onSelect,
   onPin,
   onTargetSelect,
+  accesses,
+  selectedMemoryObjectId,
 }: {
   item: VariableInspectorItem
   selected: boolean
@@ -117,6 +151,8 @@ function VariableCard({
   onSelect: () => void
   onPin: () => void
   onTargetSelect: (memoryObjectId: string) => void
+  accesses: ArrayAccessFact[]
+  selectedMemoryObjectId?: string
 }) {
   const { variable, activity } = item
   const pointer = variable.pointer
@@ -148,7 +184,12 @@ function VariableCard({
           )}
         </div>
       )}
-      <ComplexValue variable={variable} />
+      <ComplexValue
+        variable={variable}
+        accesses={accesses}
+        selectedMemoryObjectId={selectedMemoryObjectId}
+        onTargetSelect={onTargetSelect}
+      />
       {typeof variable.value === 'number' ? (
         <Sparkline history={item.history} />
       ) : item.recentValues.length > 1 ? (
@@ -171,6 +212,14 @@ export function VariableInspector({ context, actions }: VisualizationModuleProps
     const item = allItems.find((candidate) => candidate.variable.id === id)
     return item ? [item] : []
   })
+  const comparison = currentComparison(context.execution.current)
+  const arrayAccesses = (context.execution.current?.facts.filter(
+    (fact): fact is ArrayAccessFact => fact.kind === 'array_access',
+  ) ?? [])
+  const accessesByVariable = new Map<string, ArrayAccessFact[]>()
+  arrayAccesses.forEach((fact) => {
+    accessesByVariable.set(fact.variableId, [...(accessesByVariable.get(fact.variableId) ?? []), fact])
+  })
 
   const togglePin = (variableId: string) => setPinState((current) => {
     const ids = current.runId === runId ? current.ids : []
@@ -189,6 +238,8 @@ export function VariableInspector({ context, actions }: VisualizationModuleProps
       onSelect={() => actions.selectVariable(item.variable.id)}
       onPin={() => togglePin(item.variable.id)}
       onTargetSelect={actions.selectMemoryObject}
+      accesses={accessesByVariable.get(item.variable.id) ?? []}
+      selectedMemoryObjectId={context.selection.memoryObjectId}
     />
   )
 
@@ -202,6 +253,31 @@ export function VariableInspector({ context, actions }: VisualizationModuleProps
         <span>{allItems.length} 个可见变量</span>
         <span>最近 20 步</span>
       </header>
+      {arrayAccesses.length > 0 && (
+        <section className="variable-current-operation">
+          <span>当前操作</span>
+          {comparison && (
+            <div className="variable-comparison-expression">
+              <code>{comparison.expression}</code>
+              {comparison.result !== undefined && <strong>{comparison.result ? '成立' : '不成立'}</strong>}
+            </div>
+          )}
+          <div className="variable-operation-operands">
+            {arrayAccesses.map((access) => (
+              <button
+                type="button"
+                key={access.id}
+                className={`is-${access.access}`}
+                onClick={() => access.memoryObjectId && actions.selectMemoryObject(access.memoryObjectId)}
+              >
+                <code>{access.expression}</code>
+                <strong>{displayValue(access.value)}</strong>
+                <small>{access.access === 'read' ? '读取' : '写入'} · 查看内存</small>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       {pinnedItems.length > 0 && (
         <section className="variable-group pinned-variables">
           <h3>固定关注</h3>

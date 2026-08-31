@@ -853,9 +853,20 @@ button {
   text-align: center;
 }
 
-.memory-array-cells i.is-compared {
+.memory-array-cells i.is-compared,
+.memory-array-cells i.is-read {
   border-color: #4f91d0;
   background: #16283a;
+}
+
+.memory-array-cells i.is-written {
+  border-color: #e39b42;
+  background: #2b2115;
+}
+
+.memory-array-cells i.is-selected {
+  outline: 1px solid #d6e5f2;
+  outline-offset: 1px;
 }
 
 .memory-array-cells small {
@@ -867,6 +878,21 @@ button {
   color: #8b78bb;
   font: 8px/1.5 var(--mono);
 }
+
+.memory-element-detail {
+  padding: 7px;
+  border: 1px solid #40546a;
+  border-radius: 5px;
+  display: grid;
+  gap: 4px;
+  color: #91a2b4;
+  background: #111a23;
+  font: 8px/1.45 var(--mono);
+}
+
+.memory-element-detail strong { color: #d7c17c; }
+.memory-element-detail code { color: #9fc6e6; font-size: 8px; }
+.memory-element-detail small { color: #708194; }
 
 .memory-object {
   padding: 7px;

@@ -46,12 +46,12 @@ const activityFor = (
   if (firstInitialization || change?.kind === 'declare') return 'declare'
   const facts = context.execution.current?.facts ?? []
   if (facts.some((fact) =>
-    fact.kind === 'variable_access'
+    (fact.kind === 'variable_access' || fact.kind === 'array_access')
     && fact.variableId === variable.id
     && fact.access === 'write',
   ) || change?.kind === 'update') return 'write'
   if (facts.some((fact) =>
-    fact.kind === 'variable_access'
+    (fact.kind === 'variable_access' || fact.kind === 'array_access')
     && fact.variableId === variable.id
     && fact.access === 'read',
   )) return 'read'

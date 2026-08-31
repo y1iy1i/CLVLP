@@ -49,6 +49,46 @@ const step = (
 })
 
 describe('SemanticFact adapter', () => {
+  it('enriches array comparison facts with values, addresses and offsets', () => {
+    const structure = analyze(`int main(void) {
+  int arr[] = {5, 1, 4};
+  int j = 1;
+  if (arr[j] > arr[j + 1]) return 1;
+  return 0;
+}`)
+    const arr = {
+      id: 'frame:main:1:arr', frameId: 'frame:main:1', name: 'arr', type: 'int [3]', value: [5, 1, 4], scope: 'main',
+      storage: { address: '0x1000', size: 12, region: 'stack' as const, available: true },
+      fields: [
+        { name: '0', type: 'int', value: 5, address: '0x1000', offset: 0, fields: [] },
+        { name: '1', type: 'int', value: 1, address: '0x1004', offset: 4, fields: [] },
+        { name: '2', type: 'int', value: 4, address: '0x1008', offset: 8, fields: [] },
+      ],
+    }
+    const current = step(2, 4, state({
+      variables: [
+        arr,
+        { id: 'frame:main:1:j', frameId: 'frame:main:1', name: 'j', type: 'int', value: 1, scope: 'main' },
+      ],
+      callStack: [{ id: 'frame:main:1', function: 'main', variables: [arr.id, 'frame:main:1:j'] }],
+    }))
+
+    const accesses = buildSemanticFacts(structure, current).facts.filter(
+      (fact) => fact.kind === 'array_access',
+    )
+    expect(accesses).toHaveLength(2)
+    expect(accesses).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        expression: 'arr[j]', indices: [1], value: 1, address: '0x1004', byteOffset: 4,
+        memoryObjectId: `${arr.id}:element:1`, addressOrigin: 'observed', resolved: true,
+      }),
+      expect.objectContaining({
+        expression: 'arr[j + 1]', indices: [2], value: 4, address: '0x1008', byteOffset: 8,
+        memoryObjectId: `${arr.id}:element:2`, addressOrigin: 'observed', resolved: true,
+      }),
+    ]))
+  })
+
   it('separates current reads from the assignment that just executed and respects shadowing', () => {
     const structure = analyze(`int x = 100;
 int main(void) {
