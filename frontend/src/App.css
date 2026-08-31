@@ -1024,25 +1024,58 @@ button {
 }
 
 .visualization-launcher {
-  position: absolute;
+  position: fixed;
   z-index: 100000;
   top: 50%;
-  right: 40px;
-  padding: 3px;
+  right: 0;
+  width: 86px;
+  padding: 8px 5px 8px 12px;
   display: flex;
   flex-direction: column;
   gap: 3px;
   border: 1px solid #34404c;
-  border-radius: 6px;
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
   background: rgb(20 27 34 / 92%);
   box-shadow: 0 5px 14px rgb(0 0 0 / 24%);
   pointer-events: auto;
   backdrop-filter: blur(6px);
+  transform: translate(calc(100% - 8px), -50%);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.visualization-launcher:hover,
+.visualization-launcher:focus,
+.visualization-launcher:focus-within {
+  box-shadow: -8px 8px 24px rgb(0 0 0 / 34%);
+  outline: none;
+  transform: translate(0, -50%);
+}
+
+.visualization-launcher-handle {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 8px;
+  height: 58px;
+  display: grid;
+  align-items: center;
+  border-radius: 6px 0 0 6px;
+  color: #6ee0b6;
+  background: #1d302a;
+  font-size: 12px;
   transform: translateY(-50%);
+  transition: color 180ms ease, background 180ms ease;
+}
+
+.visualization-launcher:hover .visualization-launcher-handle,
+.visualization-launcher:focus-within .visualization-launcher-handle {
+  color: #8b98a7;
+  background: transparent;
 }
 
 .visualization-launcher button {
-  width: 54px;
+  width: 68px;
   min-height: 28px;
   padding: 4px 6px;
   border: 0;

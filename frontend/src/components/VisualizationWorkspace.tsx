@@ -243,7 +243,8 @@ export const VisualizationWorkspace = forwardRef<
 
   return (
     <div className="visualization-overlay" ref={desktopRef} aria-label="通用可视化工作区">
-      <div className="visualization-launcher">
+      <div className="visualization-launcher" tabIndex={0} aria-label="可视化组件侧栏">
+        <span className="visualization-launcher-handle" aria-hidden="true">‹</span>
         <button type="button" onClick={() => openWindow('variable-inspector')}>变量</button>
         <button type="button" onClick={() => openWindow('memory-graph')}>内存图</button>
         {context.selection.variableId && (
