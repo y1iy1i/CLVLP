@@ -67,6 +67,7 @@ export interface MemoryField {
   expression?: string
   address?: string
   offset?: number
+  size?: number
   pointeeSize?: number
   pointer?: PointerReference
   fields: MemoryField[]

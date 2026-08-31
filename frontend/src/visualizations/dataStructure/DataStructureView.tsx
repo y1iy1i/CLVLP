@@ -9,8 +9,8 @@ import './dataStructure.css'
 
 const shapeNames = {
   contiguous_sequence: '连续序列', matrix: '矩阵', record: '记录/结构体', linked_sequence: '链式序列',
-  circular_sequence: '环形序列', tree: '树', graph: '普通图', bucket_structure: '桶式指针结构',
-  generic_pointer_graph: '通用指针图',
+  circular_sequence: '环形序列', tree: '树', adjacency_matrix: '邻接矩阵', adjacency_list: '邻接表',
+  graph: '通用指针关系', bucket_structure: '连续入口 + 分散链', generic_pointer_graph: '通用指针关系',
 }
 
 const show = (value: unknown) => {
@@ -29,7 +29,7 @@ function LogicalView({ variable, detected, onMemory }: {
   detected: ReturnType<typeof detectStructure>
   onMemory: (id: string) => void
 }) {
-  if (detected.shape === 'matrix' && Array.isArray(variable.value)) {
+  if ((detected.shape === 'matrix' || detected.shape === 'adjacency_matrix') && Array.isArray(variable.value)) {
     return <div className="structure-matrix">{variable.value.flatMap((row, rowIndex) => Array.isArray(row) ? row.map((cell, columnIndex) => <button key={`${rowIndex}:${columnIndex}`}><small>[{rowIndex}][{columnIndex}]</small><strong>{show(cell)}</strong></button>) : [])}</div>
   }
   if ((detected.shape === 'contiguous_sequence' || detected.shape === 'bucket_structure') && Array.isArray(variable.value)) {

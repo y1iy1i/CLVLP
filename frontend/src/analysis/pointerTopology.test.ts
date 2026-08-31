@@ -92,7 +92,7 @@ describe('pointer topology and deterministic structure detection', () => {
       ...treePointers,
       pointer('p:2:shared', 'heap:2', 'heap:3', 'edge'),
     ]
-    expect(detectStructure(cursor([head], graphPointers, objects), head.id).shape).toBe('graph')
+    expect(detectStructure(cursor([head], graphPointers, objects), head.id).shape).toBe('generic_pointer_graph')
   })
 
   it('recognizes arrays and matrices from observed runtime values', () => {

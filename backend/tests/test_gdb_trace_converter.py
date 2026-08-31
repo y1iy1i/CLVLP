@@ -2,6 +2,7 @@ from app.services.gdb_trace_converter import (
     ExecutionTraceBuilder,
     GdbFrameSnapshot,
     GdbStopSnapshot,
+    GdbValueFieldSnapshot,
     GdbVariableSnapshot,
     GdbAllocationSnapshot,
     GdbReturnSnapshot,
@@ -241,6 +242,55 @@ def test_builder_exposes_parameter_roles_addresses_and_pointer_targets() -> None
     assert pointer.pointer is not None
     assert pointer.pointer.status == "resolved"
     assert pointer.pointer.targetObjectId == value.id
+
+
+def test_builder_preserves_structure_field_size_and_padding_offsets() -> None:
+    builder = ExecutionTraceBuilder()
+    step = builder.add_snapshot(
+        GdbStopSnapshot(
+            frames=[
+                frame(
+                    0,
+                    "main",
+                    8,
+                    [
+                        GdbVariableSnapshot(
+                            name="student",
+                            value="{id = 17, score = 96.5}",
+                            type="struct Student",
+                            address="0x2200",
+                            size=16,
+                            fields=(
+                                GdbValueFieldSnapshot(
+                                    name="id",
+                                    value="17",
+                                    type="int",
+                                    address="0x2200",
+                                    size=4,
+                                ),
+                                GdbValueFieldSnapshot(
+                                    name="score",
+                                    value="96.5",
+                                    type="double",
+                                    address="0x2208",
+                                    size=8,
+                                ),
+                            ),
+                        )
+                    ],
+                )
+            ]
+        )
+    )
+
+    assert step is not None
+    student = step.state.variables[0]
+    assert [(item.name, item.offset, item.size) for item in student.fields] == [
+        ("id", 0, 4),
+        ("score", 8, 8),
+    ]
+
+
 
 
 def test_builder_preserves_free_event_when_program_exits_immediately() -> None:

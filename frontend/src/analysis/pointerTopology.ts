@@ -173,9 +173,9 @@ const pointerShape = (topology: PointerTopology): { shape: StructureShape; confi
     }
   }
   return {
-    shape: 'graph',
-    confidence: 'certain',
-    evidence: [hasCycle ? '存在复杂环或回边' : '存在共享子节点', maxIn > 1 ? '至少一个节点有多个来源' : '节点存在多条连接'],
+    shape: 'generic_pointer_graph',
+    confidence: 'generic',
+    evidence: [hasCycle ? '存在复杂环或回边' : '存在共享子节点', maxIn > 1 ? '至少一个对象被多个指针引用' : '节点存在多条连接', '现有证据不足以确认是邻接表'],
   }
 }
 
@@ -187,10 +187,15 @@ export function detectStructure(cursor: ExecutionCursor, rootVariableId: string)
   const pointerEdges = topology.edges.filter((edge) => edge.status === 'resolved')
 
   if (depth >= 2) {
-    result = { shape: 'matrix', confidence: 'certain', evidence: [`运行时值具有 ${depth} 层连续数组`] }
+    const matrixValue = Array.isArray(variable?.value) ? variable.value : []
+    const looksLikeAdjacencyMatrix = /graph|adj|matrix/i.test(`${variable?.name ?? ''} ${variable?.type ?? ''}`)
+      && matrixValue.every((row) => Array.isArray(row) && row.length === matrixValue.length)
+    result = looksLikeAdjacencyMatrix
+      ? { shape: 'adjacency_matrix', confidence: 'probable', evidence: ['变量是方阵', '名称表明它用于保存图的邻接关系'] }
+      : { shape: 'matrix', confidence: 'certain', evidence: [`运行时值具有 ${depth} 层连续数组`] }
   } else if (depth === 1) {
     result = pointerEdges.length > 1
-      ? { shape: 'bucket_structure', confidence: 'probable', evidence: ['根变量是连续数组', '数组关联多条指针链'] }
+      ? { shape: 'adjacency_list', confidence: 'probable', evidence: ['根变量是连续指针数组', '每个入口关联一条边链'] }
       : { shape: 'contiguous_sequence', confidence: 'certain', evidence: ['类型和值表明它是连续序列'] }
   } else if ((variable?.fields?.length ?? 0) > 0 && pointerEdges.length === 0) {
     result = { shape: 'record', confidence: 'certain', evidence: ['GDB 已采集结构体或 union 字段'] }

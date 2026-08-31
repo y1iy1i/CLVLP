@@ -134,7 +134,7 @@ describe('buildMemoryMapModel', () => {
     expect(model.summary.freedHeapBytes).toBe(16)
   })
 
-  it('counts access history only up to the current step and prioritizes current writes', () => {
+  it('shows only the current step access and prioritizes current writes', () => {
     const variables = [variable('main:a', 'a', 3, '0x1000', 4, 'stack')]
     const history = [
       cursor(0, variables, [fact('read-0', 'main:a', 'read')]),
@@ -144,8 +144,6 @@ describe('buildMemoryMapModel', () => {
     const model = buildMemoryMapModel(context(history, 1))
     const range = model.lanes.stack.ranges[0]
 
-    expect(range.readCount).toBe(1)
-    expect(range.writeCount).toBe(1)
     expect(range.activeAccess).toBe('write')
   })
 

@@ -7,6 +7,7 @@ import type {
 import type { ExecutionCursor } from '../types/executionCursor'
 import type { VisualizationContext } from '../types/visualization'
 import { parseArrayElementMemoryId } from './arrayAccess'
+import { buildInitializedVariableIds } from './initializedVariables'
 
 const addressValue = (address?: string) => {
   if (!address || !/^0x[0-9a-f]+$/i.test(address)) return undefined
@@ -41,19 +42,6 @@ const factAccesses = (fact: SemanticFact) => {
     return [{ id: fact.memoryObjectId, access: 'write' as const }]
   }
   return []
-}
-
-const accessCounts = (history: readonly ExecutionCursor[], currentIndex: number) => {
-  const reads = new Map<string, number>()
-  const writes = new Map<string, number>()
-  history.slice(0, Math.max(0, currentIndex) + 1).forEach((cursor) => {
-    cursor.facts.flatMap(factAccesses).forEach(({ id, access }) => {
-      const target = access === 'read' ? reads : writes
-      const key = parentMemoryId(id)
-      target.set(key, (target.get(key) ?? 0) + 1)
-    })
-  })
-  return { reads, writes }
 }
 
 const currentAccesses = (cursor: ExecutionCursor | null) => {
@@ -133,8 +121,8 @@ export function buildMemoryMapModel(context: VisualizationContext): MemoryMapMod
     }
   }
 
-  const counts = accessCounts(context.execution.history, context.execution.currentIndex)
   const active = currentAccesses(cursor)
+  const initialized = buildInitializedVariableIds(context)
   const variables = new Map(cursor.variables.map((variable) => [variable.id, variable]))
   const seen = new Set<string>()
   const newlyAllocated = new Set(cursor.facts.flatMap((fact) =>
@@ -167,9 +155,8 @@ export function buildMemoryMapModel(context: VisualizationContext): MemoryMapMod
       bytes: object.bytes ?? variable?.storage?.bytes,
       fields: object.fields ?? variable?.fields ?? [],
       pointer: variable?.pointer,
+      initialized: variable ? initialized.has(variable.id) : true,
       status: object.lifetime?.status ?? 'alive',
-      readCount: counts.reads.get(object.id) ?? 0,
-      writeCount: counts.writes.get(object.id) ?? 0,
       activeAccess: active.get(object.id),
       newlyAllocated: newlyAllocated.has(object.id),
       selected: selectedMemoryId === object.id,
@@ -198,9 +185,8 @@ export function buildMemoryMapModel(context: VisualizationContext): MemoryMapMod
       bytes: variable.storage?.bytes,
       fields: variable.fields ?? [],
       pointer: variable.pointer,
+      initialized: initialized.has(variable.id),
       status: 'alive',
-      readCount: counts.reads.get(variable.id) ?? 0,
-      writeCount: counts.writes.get(variable.id) ?? 0,
       activeAccess: active.get(variable.id),
       newlyAllocated: false,
       selected: selectedMemoryId === variable.id,

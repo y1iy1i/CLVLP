@@ -1,6 +1,7 @@
 import type { VariableChange } from '../../types/executionCursor'
 import type { TraceVariable } from '../../types/trace'
 import type { VisualizationContext } from '../../types/visualization'
+import { buildInitializedVariableIds } from '../../analysis/initializedVariables'
 
 export type VariableActivity = 'declare' | 'read' | 'write' | 'out_of_scope' | 'unavailable' | 'idle'
 
@@ -121,24 +122,17 @@ export function buildVariableInspectorGroups(
   if (!cursor) return []
   const byId = new Map(cursor.variables.map((variable) => [variable.id, variable]))
   const changes = new Map(cursor.changes.map((change) => [change.variableId, change]))
-  const historyBeforeCurrent = context.execution.history.slice(0, Math.max(0, context.execution.currentIndex))
-  const previouslyInitialized = new Set(historyBeforeCurrent.flatMap((candidate) => [
-    ...candidate.changes.filter((change) => change.kind !== 'out_of_scope').map((change) => change.variableId),
-    ...candidate.facts.flatMap((fact) =>
-      fact.kind === 'assignment' && fact.changeKind !== 'out_of_scope' ? [fact.variableId] : [],
-    ),
-    ...candidate.variables.filter((variable) => variable.role === 'parameter' || variable.role === 'global').map((variable) => variable.id),
-  ]))
-  const initialized = new Set(previouslyInitialized)
-  cursor.changes.forEach((change) => {
-    if (change.kind !== 'out_of_scope') initialized.add(change.variableId)
-  })
-  cursor.facts.forEach((fact) => {
-    if (fact.kind === 'assignment' && fact.changeKind !== 'out_of_scope') initialized.add(fact.variableId)
-  })
-  cursor.variables.forEach((variable) => {
-    if (variable.role === 'parameter' || variable.role === 'global') initialized.add(variable.id)
-  })
+  const initialized = buildInitializedVariableIds(context)
+  const previousContext = {
+    ...context,
+    execution: {
+      ...context.execution,
+      currentIndex: context.execution.currentIndex - 1,
+    },
+  }
+  const previouslyInitialized = context.execution.currentIndex > 0
+    ? buildInitializedVariableIds(previousContext)
+    : new Set<string>()
   const claimed = new Set<string>()
   const groups: VariableInspectorGroup[] = []
 

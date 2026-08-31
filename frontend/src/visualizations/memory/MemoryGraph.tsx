@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { buildMemoryMapModel } from '../../analysis/memoryMap'
 import type { VisualizationModuleProps } from '../registry'
 import { MemoryLaneView } from './MemoryLaneView'
@@ -10,21 +10,23 @@ const value = (input: unknown) => {
 
 export function MemoryGraph({ context, actions }: VisualizationModuleProps) {
   const model = useMemo(() => buildMemoryMapModel(context), [context])
-  const [mode, setMode] = useState<'current' | 'history'>('current')
   const selected = Object.values(model.lanes).flatMap((lane) => lane.ranges)
     .find((range) => range.selected)
-  const pointers = context.execution.current?.memory.pointers ?? []
+  const pointers = (context.execution.current?.memory.pointers ?? []).filter(
+    (pointer) => pointer.id === `pointer:${pointer.sourceVariableId}`,
+  )
   return (
     <div className="memory-graph">
       <header className="memory-graph-toolbar">
-        <div><button className={mode === 'current' ? 'active' : ''} onClick={() => setMode('current')}>当前状态</button><button className={mode === 'history' ? 'active' : ''} onClick={() => setMode('history')}>历史热度</button></div>
+        <strong>真实地址排列</strong>
         <span>栈 {model.summary.capturedStackBytes} B · 全局 {model.summary.globalBytes} B · 堆 {model.summary.liveHeapBytes} B · 峰值 {model.summary.peakHeapBytes} B</span>
       </header>
-      <MemoryLaneView model={model} historyMode={mode === 'history'} onSelect={actions.selectMemoryObject} />
+      <div className="memory-graph-explanation">数组连续分格；结构体按字段、偏移和 padding 切分；链表、树和邻接表通过块内指针字段连接目标对象。</div>
+      <MemoryLaneView model={model} onSelect={actions.selectMemoryObject} />
       {model.registerVariables.length > 0 && <div className="memory-registers"><strong>寄存器变量（不计入比例尺）</strong>{model.registerVariables.map((item) => <code key={item.id}>{item.name} = {value(item.value)}</code>)}</div>}
       <section className="pointer-relations">
-        <h3>指针关系</h3>
-        {pointers.length === 0 ? <em>当前没有已采集指针</em> : pointers.map((pointer) => {
+        <h3>独立指针变量</h3>
+        {pointers.length === 0 ? <em>当前没有独立指针变量；结构体指针直接显示在对应字段内部。</em> : pointers.map((pointer) => {
           const source = context.execution.current?.variables.find((item) => item.id === pointer.sourceVariableId)
           const target = context.execution.current?.memory.objects.find((item) => item.id === pointer.targetObjectId)
           return <button key={pointer.id} type="button" onClick={() => pointer.targetObjectId && actions.selectMemoryObject(pointer.targetObjectId)}>

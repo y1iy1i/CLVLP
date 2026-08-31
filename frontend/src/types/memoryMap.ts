@@ -17,9 +17,8 @@ export interface MemoryRange {
   bytes?: string
   fields: MemoryField[]
   pointer?: PointerReference
+  initialized: boolean
   status: 'alive' | 'freed' | 'unknown'
-  readCount: number
-  writeCount: number
   activeAccess?: 'read' | 'write'
   newlyAllocated: boolean
   selected: boolean

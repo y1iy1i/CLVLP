@@ -99,35 +99,33 @@ int main(void) {
 }`,
   },
   {
-    id: 'pointer-graph',
-    title: '指针图',
-    fileName: 'pointer_graph.c',
+    id: 'adjacency-list',
+    title: '邻接表',
+    fileName: 'adjacency_list.c',
     category: '图',
-    description: '多条边、共享节点和环',
+    description: '连续顶点入口和分散边链表',
     code: `#include <stdio.h>
 
-typedef struct GraphNode {
-    int id;
-    struct GraphNode *neighbors[3];
-    int count;
-} GraphNode;
+typedef struct Edge {
+    int target;
+    struct Edge *next;
+} Edge;
 
 int main(void) {
-    GraphNode a = {1, {NULL, NULL, NULL}, 2};
-    GraphNode b = {2, {NULL, NULL, NULL}, 2};
-    GraphNode c = {3, {NULL, NULL, NULL}, 1};
-    GraphNode d = {4, {NULL, NULL, NULL}, 1};
+    Edge edge_1_3 = {3, NULL};
+    Edge edge_1_2 = {2, &edge_1_3};
+    Edge edge_0_2 = {2, NULL};
+    Edge edge_0_1 = {1, &edge_0_2};
+    Edge *graph[4] = {&edge_0_1, &edge_1_2, NULL, NULL};
 
-    a.neighbors[0] = &b;
-    a.neighbors[1] = &c;
-    b.neighbors[0] = &c;
-    b.neighbors[1] = &d;
-    c.neighbors[0] = &a;
-    d.neighbors[0] = &d;
-
-    GraphNode *start = &a;
-    for (int i = 0; i < start->count; i++) {
-        printf("%d -> %d\\n", start->id, start->neighbors[i]->id);
+    for (int vertex = 0; vertex < 4; vertex++) {
+        printf("%d:", vertex);
+        Edge *edge = graph[vertex];
+        while (edge != NULL) {
+            printf(" %d", edge->target);
+            edge = edge->next;
+        }
+        printf("\\n");
     }
     return 0;
 }`,

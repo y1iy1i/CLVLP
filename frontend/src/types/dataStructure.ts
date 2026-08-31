@@ -7,6 +7,8 @@ export type StructureShape =
   | 'linked_sequence'
   | 'circular_sequence'
   | 'tree'
+  | 'adjacency_matrix'
+  | 'adjacency_list'
   | 'graph'
   | 'bucket_structure'
   | 'generic_pointer_graph'

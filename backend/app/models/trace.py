@@ -71,6 +71,7 @@ class MemoryField(BaseModel):
     expression: Optional[str] = None
     address: Optional[str] = None
     offset: Optional[int] = None
+    size: Optional[int] = Field(default=None, ge=0)
     pointeeSize: Optional[int] = Field(default=None, ge=1)
     pointer: Optional[PointerReference] = None
     fields: List["MemoryField"] = Field(default_factory=list)

@@ -44,6 +44,7 @@ class GdbValueFieldSnapshot:
     type: str = "unknown"
     expression: Optional[str] = None
     address: Optional[str] = None
+    size: Optional[int] = None
     pointee_size: Optional[int] = None
     children: Sequence["GdbValueFieldSnapshot"] = field(default_factory=tuple)
 
@@ -528,6 +529,11 @@ def _capture_value_fields(
             else None
         )
         child_type = str(payload.get("type", "unknown"))
+        child_size = (
+            _evaluate_int(session, f"sizeof({path_expression})")
+            if path_expression
+            else None
+        )
         pointee_size = (
             _evaluate_int(session, f"sizeof(*({path_expression}))")
             if path_expression and "*" in child_type
@@ -540,6 +546,7 @@ def _capture_value_fields(
                 type=child_type,
                 expression=path_expression,
                 address=_hex_address(child_address),
+                size=child_size,
                 pointee_size=pointee_size,
                 children=_capture_value_fields(
                     session,
@@ -973,6 +980,7 @@ class ExecutionTraceBuilder:
             expression=field_snapshot.expression,
             address=address,
             offset=(child - parent if child is not None and parent is not None else None),
+            size=field_snapshot.size,
             pointeeSize=field_snapshot.pointee_size,
             fields=[
                 ExecutionTraceBuilder._convert_field(item, address)
@@ -1135,7 +1143,10 @@ class ExecutionTraceBuilder:
                 continue
             old_variable = before[variable_id]
             old_value = convert_gdb_value(old_variable.value, old_variable.type)
-            if old_value != new_value or old_variable.type != variable.type:
+            if (
+                old_value != new_value
+                or old_variable.type != variable.type
+            ):
                 changes.append(
                     {
                         "kind": "update",
