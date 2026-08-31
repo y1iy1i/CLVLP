@@ -22,7 +22,7 @@ export function MemoryGraph({ context, actions }: VisualizationModuleProps) {
         <span>栈 {model.summary.capturedStackBytes} B · 全局 {model.summary.globalBytes} B · 堆 {model.summary.liveHeapBytes} B · 峰值 {model.summary.peakHeapBytes} B</span>
       </header>
       <div className="memory-graph-explanation">数组连续分格；结构体按字段、偏移和 padding 切分；链表、树和邻接表通过块内指针字段连接目标对象。</div>
-      <MemoryLaneView model={model} onSelect={actions.selectMemoryObject} />
+      <MemoryLaneView model={model} onSelect={actions.selectMemoryObject} onOpenStructure={actions.openDataStructure} />
       {model.registerVariables.length > 0 && <div className="memory-registers"><strong>寄存器变量（不计入比例尺）</strong>{model.registerVariables.map((item) => <code key={item.id}>{item.name} = {value(item.value)}</code>)}</div>}
       <section className="pointer-relations">
         <h3>独立指针变量</h3>

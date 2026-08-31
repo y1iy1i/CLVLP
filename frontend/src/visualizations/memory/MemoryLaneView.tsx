@@ -68,21 +68,23 @@ function FieldLayout({ fields, totalSize, targetLabels, onSelect }: { fields: Me
       </button>)}</div>
 }
 
-function DetailedRange({ range, targetLabels, onSelect }: { range: MemoryRange; targetLabels: Map<string, string>; onSelect?: (id: string) => void }) {
+function DetailedRange({ range, targetLabels, onSelect, onOpenStructure }: { range: MemoryRange; targetLabels: Map<string, string>; onSelect?: (id: string) => void; onOpenStructure?: (variableId: string) => void }) {
   const kind = layoutKind(range)
   return <article className={['memory-range', `layout-${kind}`, range.activeAccess ? `is-${range.activeAccess}` : '', range.status === 'freed' ? 'is-freed' : '', range.newlyAllocated ? 'is-new' : '', range.selected ? 'is-selected' : '', range.size === undefined || !range.startAddress ? 'is-unknown' : ''].filter(Boolean).join(' ')} onClick={() => onSelect?.(range.memoryObjectId)}>
-    <header><span><strong>{range.label}</strong><small>{kindName[kind]}</small></span><code>{range.type ?? '未知类型'} · {range.size ?? '?'}B @ {range.startAddress ?? '地址未知'}</code></header>
+    <header><span><strong>{range.label}</strong><small>{kindName[kind]}</small></span><code>{range.type ?? '未知类型'} · {range.size ?? '?'}B @ {range.startAddress ?? '地址未知'}</code>{onOpenStructure && range.variableId && (range.fields.length > 0 || Array.isArray(range.value) || range.pointer) && <button type="button" className="open-structure-button" onClick={(event) => { event.stopPropagation(); onOpenStructure(range.variableId!) }}>逻辑 + 内存</button>}</header>
     {!range.initialized
       ? <div className="memory-uninitialized">尚未执行声明或初始化；栈空间已经存在，但其中字节暂不解释为有效值。</div>
       : (kind === 'sequence' || kind === 'matrix' || kind === 'adjacency-list') && Array.isArray(range.value)
       ? <ArrayLayout range={range} targetLabels={targetLabels} onSelect={onSelect} />
+      : kind === 'pointer'
+        ? <div className="memory-scalar-layout"><strong>{show(range.value)}</strong>{range.pointer && <span><b>&amp;{range.label}</b> = {range.pointer.sourceAddress ?? range.startAddress ?? '未知'}<b>{range.label}</b> = {range.pointer.addressValue ?? '未知'}<b>*{range.label}</b> = {range.pointer.targetObjectId ? targetLabels.get(range.pointer.targetObjectId) ?? range.pointer.targetObjectId : range.pointer.status}</span>}</div>
       : range.fields.length > 0
         ? <FieldLayout fields={range.fields} totalSize={range.size} targetLabels={targetLabels} onSelect={onSelect} />
         : <div className="memory-scalar-layout"><strong>{show(range.value)}</strong>{range.pointer && <span><b>&amp;{range.label}</b> = {range.pointer.sourceAddress ?? range.startAddress ?? '未知'}<b>{range.label}</b> = {range.pointer.addressValue ?? '未知'}<b>*{range.label}</b> = {range.pointer.targetObjectId ?? range.pointer.status}</span>}</div>}
   </article>
 }
 
-export function MemoryLaneView({ model, compact = false, filterIds, onSelect }: { model: MemoryMapModel; compact?: boolean; filterIds?: ReadonlySet<string>; onSelect?: (id: string) => void }) {
+export function MemoryLaneView({ model, compact = false, filterIds, onSelect, onOpenStructure }: { model: MemoryMapModel; compact?: boolean; filterIds?: ReadonlySet<string>; onSelect?: (id: string) => void; onOpenStructure?: (variableId: string) => void }) {
   const targetLabels = new Map(Object.values(model.lanes).flatMap((lane) => lane.ranges).map((range) => [range.memoryObjectId, range.label]))
   return <div className={`memory-lanes${compact ? ' is-compact' : ''}`}>{(Object.keys(model.lanes) as MemoryRegion[]).map((region) => {
     const lane = model.lanes[region]
@@ -91,7 +93,7 @@ export function MemoryLaneView({ model, compact = false, filterIds, onSelect }: 
     const discontinuities = new Map(lane.discontinuities.map((gap) => [gap.afterRangeId, gap]))
     return <section className="memory-lane" key={region}><header><strong>{regionNames[region]}</strong><span>{knownBytes} B 已采集 · 按真实地址从低到高</span></header><div className="memory-lane-track">
       {ranges.length === 0 ? <em>暂无已采集对象</em> : ranges.map((range) => <div className="memory-range-wrap" key={range.id}>
-        {compact ? <button type="button" className={`memory-range compact-range ${range.activeAccess ? `is-${range.activeAccess}` : ''}`} onClick={() => onSelect?.(range.memoryObjectId)}><strong>{range.label}</strong></button> : <DetailedRange range={range} targetLabels={targetLabels} onSelect={onSelect} />}
+        {compact ? <button type="button" className={`memory-range compact-range ${range.activeAccess ? `is-${range.activeAccess}` : ''}`} onClick={() => onSelect?.(range.memoryObjectId)}><strong>{range.label}</strong></button> : <DetailedRange range={range} targetLabels={targetLabels} onSelect={onSelect} onOpenStructure={onOpenStructure} />}
         {discontinuities.has(range.id) && <span className="memory-gap">// +{discontinuities.get(range.id)?.gapBytes ?? '?'} B<br />未观察地址</span>}
       </div>)}
     </div></section>

@@ -125,7 +125,9 @@ const nestedArrayDepth = (value: unknown): number =>
     : 0
 
 const pointerShape = (topology: PointerTopology): { shape: StructureShape; confidence: DetectedStructure['confidence']; evidence: string[] } => {
-  const resolved = topology.edges.filter((edge) => edge.status === 'resolved' && edge.targetId)
+  const resolved = [...new Map(topology.edges
+    .filter((edge) => edge.status === 'resolved' && edge.targetId)
+    .map((edge) => [`${edge.sourceId}:${edge.role}:${edge.targetId}`, edge])).values()]
   if (resolved.length === 0) {
     return { shape: 'generic_pointer_graph', confidence: 'generic', evidence: ['没有足够的已解析指针关系'] }
   }
@@ -164,6 +166,14 @@ const pointerShape = (topology: PointerTopology): { shape: StructureShape; confi
     return hasCycle
       ? { shape: 'circular_sequence', confidence: 'certain', evidence: ['每个节点最多一个后继', '指针最终回到已访问节点'] }
       : { shape: 'linked_sequence', confidence: 'certain', evidence: ['每个节点最多一个后继', '未发现环'] }
+  }
+  const onlyTreeRoles = [...roles].every((role) => role === 'left' || role === 'right' || role === 'target')
+  if (!hasCycle && onlyTreeRoles && (roles.has('left') || roles.has('right'))) {
+    return {
+      shape: 'tree',
+      confidence: maxIn <= 1 ? 'certain' : 'probable',
+      evidence: ['发现 left/right 子节点字段', maxIn <= 1 ? '每个节点最多一个父节点' : '调试器展开数据中存在重复引用', '未发现环'],
+    }
   }
   if (!hasCycle && maxIn <= 1) {
     return {

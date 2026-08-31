@@ -15,6 +15,7 @@
 .memory-range > header strong { overflow: hidden; color: #67ddb5; text-overflow: ellipsis; font: 700 10px var(--mono); }
 .memory-range > header small { color: #7d8995; font: 7px var(--mono); }
 .memory-range > header code { color: #7796ad; font: 7px var(--mono); }
+.memory-range > header .open-structure-button { padding: 3px 5px; border: 1px solid #3f6f60; color: #69d7ae; background: #14231f; font: 7px var(--mono); cursor: pointer; }
 .memory-range.is-read { border: 2px solid #4f91d0; }
 .memory-range.is-write { border: 2px solid #e39b42; }
 .memory-range.is-new { box-shadow: inset 0 0 0 2px #4bc999; }
