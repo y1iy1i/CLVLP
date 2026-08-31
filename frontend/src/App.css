@@ -947,10 +947,11 @@ button {
 .visualization-launcher {
   position: absolute;
   z-index: 100000;
-  top: 7px;
-  right: 8px;
+  top: 50%;
+  right: 40px;
   padding: 3px;
   display: flex;
+  flex-direction: column;
   gap: 3px;
   border: 1px solid #34404c;
   border-radius: 6px;
@@ -958,11 +959,13 @@ button {
   box-shadow: 0 5px 14px rgb(0 0 0 / 24%);
   pointer-events: auto;
   backdrop-filter: blur(6px);
+  transform: translateY(-50%);
 }
 
 .visualization-launcher button {
-  height: 23px;
-  padding: 0 7px;
+  width: 54px;
+  min-height: 28px;
+  padding: 4px 6px;
   border: 0;
   border-radius: 4px;
   color: #8794a3;
