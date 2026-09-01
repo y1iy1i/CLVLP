@@ -3,6 +3,7 @@ import { Background, Controls, MarkerType, ReactFlow, type Edge, type Node } fro
 import '@xyflow/react/dist/style.css'
 import { buildMemoryMapModel } from '../../analysis/memoryMap'
 import { detectStructure } from '../../analysis/pointerTopology'
+import { buildInitializedVariableIds } from '../../analysis/initializedVariables'
 import type { MemoryField, TraceVariable } from '../../types/trace'
 import type { VisualizationModuleProps } from '../registry'
 import { MemoryLaneView } from '../memory/MemoryLaneView'
@@ -108,17 +109,24 @@ function LogicalView({ variable, detected, selectedMemoryObjectId, onMemory }: {
 export function DataStructureView({ scope, context, actions }: VisualizationModuleProps) {
   const rootVariableId = scope.kind === 'data-structure' ? scope.rootVariableId : ''
   const variable = context.execution.current?.variables.find((item) => item.id === rootVariableId)
-  const detected = context.execution.current && rootVariableId
+  const initializedVariables = useMemo(() => buildInitializedVariableIds(context), [context])
+  const initialized = Boolean(variable && initializedVariables.has(variable.id))
+  const detected = context.execution.current && rootVariableId && initialized
     ? detectStructure(context.execution.current, rootVariableId)
     : null
   const memory = useMemo(() => buildMemoryMapModel(context), [context])
   const [mode, setMode] = useState<'logical' | 'memory' | 'split'>('split')
-  if (!variable || !detected) return <div className="data-structure-empty">当前 Run 中找不到这个根变量，它可能已经离开作用域。</div>
+  if (!variable) return <div className="data-structure-empty">当前 Run 中找不到这个根变量，它可能已经离开作用域。</div>
+  if (!initialized) return <div className="data-structure-view is-waiting">
+    <header><div><strong>{variable.name}</strong><span>等待初始化</span></div></header>
+    <div className="data-structure-waiting"><strong>{variable.name} 尚未初始化</strong><span>栈空间已经保留，但程序还没有执行它的声明或初始化语句。</span><code>执行到初始化之后，这里会自动切换为有效的逻辑结构。</code></div>
+  </div>
+  if (!detected) return <div className="data-structure-empty">暂时无法识别这个变量的结构。</div>
   const reachable = new Set(detected.memoryObjectIds)
   return <div className="data-structure-view">
     <header><div><strong>{variable.name}</strong><span>{shapeNames[detected.shape]}</span><i>{detected.confidence === 'certain' ? '确定识别' : detected.confidence === 'probable' ? '可能' : '通用视图'}</i></div><nav><button className={mode === 'logical' ? 'active' : ''} onClick={() => setMode('logical')}>逻辑结构</button><button className={mode === 'memory' ? 'active' : ''} onClick={() => setMode('memory')}>内存布局</button><button className={mode === 'split' ? 'active' : ''} onClick={() => setMode('split')}>并排联动</button></nav></header>
     <div className={`data-structure-content mode-${mode}`}>
-      {mode !== 'memory' && <section><LogicalView variable={variable} detected={detected} selectedMemoryObjectId={context.selection.memoryObjectId} onMemory={actions.selectMemoryObject} /></section>}
+      {mode !== 'memory' && <section><LogicalView key={`logical:${mode}`} variable={variable} detected={detected} selectedMemoryObjectId={context.selection.memoryObjectId} onMemory={actions.selectMemoryObject} /></section>}
       {mode !== 'logical' && <section><MemoryLaneView model={memory} filterIds={reachable} onSelect={actions.selectMemoryObject} /></section>}
     </div>
     <footer>{detected.evidence.map((item) => <span key={item}>{item}</span>)}{(detected.topology.truncated || detected.topology.maxDepthReached) && <strong>结构过大，已安全截断</strong>}</footer>

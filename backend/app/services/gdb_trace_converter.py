@@ -1028,9 +1028,13 @@ class ExecutionTraceBuilder:
         for field in fields:
             field_path = f"{path}.{field.name}" if path else field.name
             if "*" in field.type:
+                source_variable_id = ExecutionTraceBuilder._memory_owner_id(
+                    field.address,
+                    objects,
+                ) or variable_id
                 pointer = ExecutionTraceBuilder._resolve_pointer_value(
-                    pointer_id=f"pointer:{variable_id}:{field_path}",
-                    source_variable_id=variable_id,
+                    pointer_id=f"pointer:{source_variable_id}:{field_path}",
+                    source_variable_id=source_variable_id,
                     source_expression=field.expression or field_path,
                     source_address=field.address,
                     type_name=field.type,
@@ -1047,6 +1051,28 @@ class ExecutionTraceBuilder:
                 pointers,
                 field_path,
             )
+
+    @staticmethod
+    def _memory_owner_id(
+        address: Optional[str],
+        objects: Sequence[MemoryObject],
+    ) -> Optional[str]:
+        """Return the object whose byte range contains a captured field.
+
+        GDB recursively expands pointees below the root variable. Those nested
+        fields still carry their real addresses, so the address—not the root
+        variable used to start expansion—identifies the pointer edge source.
+        """
+        value = _address_int(address)
+        if value is None:
+            return None
+        for candidate in objects:
+            start = _address_int(candidate.address)
+            if start is None or candidate.size is None:
+                continue
+            if start <= value < start + candidate.size:
+                return candidate.id
+        return None
 
     @staticmethod
     def _resolve_pointer_value(

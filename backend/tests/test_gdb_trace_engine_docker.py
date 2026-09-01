@@ -88,6 +88,18 @@ MEMORY_CODE = (
     "}\n"
 )
 
+STACK_LINKED_LIST_CODE = (
+    "#include <stddef.h>\n"
+    "typedef struct Node { int value; struct Node *next; } Node;\n"
+    "int main(void) {\n"
+    "    Node third = {30, NULL};\n"
+    "    Node second = {20, &third};\n"
+    "    Node first = {10, &second};\n"
+    "    Node *head = &first;\n"
+    "    return head->next->next->value == 30 ? 0 : 1;\n"
+    "}\n"
+)
+
 
 def test_engine_traces_for_loop_with_output() -> None:
     trace = GdbTraceEngine().run(RunRequest(code=FOR_LOOP_CODE, entryFile="main.c"))
@@ -306,6 +318,34 @@ def test_engine_collects_real_storage_pointers_returns_and_heap_lifetime() -> No
         for step in trace.trace
         for pointer in step.state.pointers
     )
+
+
+def test_engine_assigns_nested_stack_list_edges_to_the_real_node() -> None:
+    trace = GdbTraceEngine().run(
+        RunRequest(code=STACK_LINKED_LIST_CODE, entryFile="main.c")
+    )
+
+    assert trace.status == "completed"
+    snapshot = next(
+        step
+        for step in trace.trace
+        if any(
+            item.name == "head"
+            and item.pointer is not None
+            and item.pointer.status == "resolved"
+            for item in step.state.variables
+        )
+    )
+    variables = {item.name: item.id for item in snapshot.state.variables}
+    relations = {
+        (pointer.sourceVariableId, pointer.targetObjectId)
+        for pointer in snapshot.state.pointers
+        if pointer.status == "resolved"
+    }
+    assert (variables["head"], variables["first"]) in relations
+    assert (variables["first"], variables["second"]) in relations
+    assert (variables["second"], variables["third"]) in relations
+    assert (variables["first"], variables["third"]) not in relations
 
 
 def test_engine_returns_compile_error_trace() -> None:

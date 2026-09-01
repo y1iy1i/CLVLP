@@ -291,6 +291,71 @@ def test_builder_preserves_structure_field_size_and_padding_offsets() -> None:
     ]
 
 
+def test_nested_field_pointers_belong_to_the_containing_memory_object() -> None:
+    node_pointer = lambda value, address, children=(): GdbValueFieldSnapshot(
+        name="next",
+        value=value,
+        type="struct Node *",
+        expression="next",
+        address=address,
+        size=8,
+        children=children,
+    )
+    builder = ExecutionTraceBuilder()
+    step = builder.add_snapshot(
+        GdbStopSnapshot(
+            frames=[
+                frame(
+                    0,
+                    "main",
+                    12,
+                    [
+                        GdbVariableSnapshot(
+                            name="third",
+                            value="{value = 30, next = 0x0}",
+                            type="Node",
+                            address="0x1030",
+                            size=16,
+                            fields=(node_pointer("0x0", "0x1038"),),
+                        ),
+                        GdbVariableSnapshot(
+                            name="second",
+                            value="{value = 20, next = 0x1030}",
+                            type="Node",
+                            address="0x1020",
+                            size=16,
+                            fields=(node_pointer("0x1030", "0x1028"),),
+                        ),
+                        GdbVariableSnapshot(
+                            name="first",
+                            value="{value = 10, next = 0x1020}",
+                            type="Node",
+                            address="0x1010",
+                            size=16,
+                            fields=(node_pointer(
+                                "0x1020",
+                                "0x1018",
+                                children=(node_pointer("0x1030", "0x1028"),),
+                            ),),
+                        ),
+                    ],
+                )
+            ]
+        )
+    )
+
+    assert step is not None
+    variables = {item.name: item.id for item in step.state.variables}
+    next_edges = {
+        (item.sourceVariableId, item.targetObjectId)
+        for item in step.state.pointers
+        if item.sourceExpression == "next" and item.targetObjectId
+    }
+    assert (variables["first"], variables["second"]) in next_edges
+    assert (variables["second"], variables["third"]) in next_edges
+    assert (variables["first"], variables["third"]) not in next_edges
+
+
 
 
 def test_builder_preserves_free_event_when_program_exits_immediately() -> None:
