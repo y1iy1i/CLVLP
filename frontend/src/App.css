@@ -1166,6 +1166,13 @@ body.is-resizing-layout * {
   background: #1d302a;
 }
 
+.visualization-launcher button:disabled {
+  color: #4f5965;
+  background: transparent;
+  cursor: not-allowed;
+  opacity: .7;
+}
+
 .structure-details-placeholder {
   min-height: 0;
   display: flex;

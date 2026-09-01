@@ -10,6 +10,7 @@ import {
   visualizationModuleById,
   type VisualizationModuleDefinition,
 } from '../visualizations/registry'
+import { preferredDataStructureVariableId } from './visualizationLauncherModel'
 
 type ModuleId = VisualizationModuleDefinition['id']
 
@@ -225,6 +226,8 @@ export const VisualizationWorkspace = forwardRef<
 
   if (!context || !structure) return null
 
+  const dataStructureVariableId = preferredDataStructureVariableId(context)
+
   const actions: VisualizationActions = {
     seekStep: onSeekStep,
     selectSourceNode: onSourceSelect,
@@ -247,12 +250,15 @@ export const VisualizationWorkspace = forwardRef<
         <span className="visualization-launcher-handle" aria-hidden="true">‹</span>
         <button type="button" onClick={() => openWindow('variable-inspector')}>变量</button>
         <button type="button" onClick={() => openWindow('memory-graph')}>内存图</button>
-        {context.selection.variableId && (
-          <button type="button" onClick={() => openWindow('data-structure', {
+        <button
+          type="button"
+          disabled={!dataStructureVariableId}
+          title={dataStructureVariableId ? '打开当前或自动识别的数据结构' : '运行 Trace 后自动寻找数组、结构体或指针变量'}
+          onClick={() => dataStructureVariableId && openWindow('data-structure', {
             kind: 'data-structure',
-            rootVariableId: context.selection.variableId!,
-          })}>当前变量结构</button>
-        )}
+            rootVariableId: dataStructureVariableId,
+          })}
+        >数据结构</button>
         <button type="button" onClick={() => openWindow('call-graph')}>函数总图</button>
         {context.execution.current?.functionId && (
           <button type="button" onClick={() => openWindow(
